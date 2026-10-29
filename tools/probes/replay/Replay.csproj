@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Offline harness: drives CrabDirector/Core with synthetic input streams. Not part of the mod DLL. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>replay</AssemblyName>
+    <RootNamespace>SpellBrigadeMods.CrabDirector.Replay</RootNamespace>
+    <RollForward>Major</RollForward>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\..\CrabDirector\Core\*.cs" Link="Core\%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

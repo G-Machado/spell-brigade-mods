@@ -25,7 +25,6 @@ namespace SpellBrigadeMods.CrabDirector
     {
         internal static MelonLogger.Instance Log;
         internal static MelonPreferences_Entry<bool> Enabled, OnlyInCrabLand, LogDecisions;
-        internal static Tuning Tuning = new Tuning();
 
         private static string Dir => Path.Combine(MelonEnvironment.UserDataDirectory, "CrabDirector");
         private static IntPtr _run;
@@ -99,9 +98,9 @@ namespace SpellBrigadeMods.CrabDirector
 
         private static void StartRun()
         {
-            Tuning = Tuning.Load(Path.Combine(Dir, "rules.json"), m => Log.Msg(m));
+            var tuning = Tuning.Load(Path.Combine(Dir, "rules.json"), m => Log.Msg(m));
             JsonLog.Open(Dir);
-            Director.BeginRun();
+            Director.BeginRun(tuning);
             JsonLog.Write(new Dictionary<string, object>
             {
                 ["ev"] = "run", ["t"] = Time.time, ["scene"] = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
@@ -151,8 +150,8 @@ namespace SpellBrigadeMods.CrabDirector
             if (pm == null || pm.AlivePlayers == null || pm.AlivePlayers.Count == 0) return "no player";
             if (JsonLog.Path == null) JsonLog.Open(Dir);
             var p = pm.AlivePlayers[0];
-            var ok = Director.Spawn("debug", (EnemyType)type, count, p.GetTransform(), 6f, 10f, 0f, 1f,
-                EnemySpawnRotation.TowardsClosestPlayer, p.OwnerClientId, charge: false, ignoreCaps: true);
+            Inputs.Remember(p);
+            var ok = Director.DebugSpawn((Crab)type, count, p.OwnerClientId);
             return $"spawn={ok} census={Census.Total} log={JsonLog.Path}";
         }
     }

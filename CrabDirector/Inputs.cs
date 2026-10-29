@@ -6,57 +6,15 @@ using UnityEngine;
 
 namespace SpellBrigadeMods.CrabDirector
 {
-    internal sealed class PlayerState
-    {
-        public ulong Id;
-        public GameplayPlayer Player;
-        public bool Alive;
-
-        // Sampled
-        public float Hp, MaxHp;
-        public int Chasing;
-        public Vector3 Pos, Vel;
-        public bool HasPos;
-        public float Speed, StillFor;
-
-        // Smoothed rates (EMA, per second)
-        public float DmgTakenRate, KillRate, DealtRate;
-
-        // Event accumulators, cleared every sample
-        public float AccDmgTaken, AccDealt, AccSpellProj, AccSpellTotal;
-        public int AccKills, AccDowns;
-
-        // Per-second raw totals for the log, cleared every second
-        public float SecDmgTaken, SecDealt;
-        public int SecKills, SecDowns, SecRevives;
-        public readonly Dictionary<string, float> SecSpell = new Dictionary<string, float>();
-
-        // Derived
-        public float I;
-        public float LastHit = -999f;
-        public float ProjShare;
-        public readonly Queue<(float t, float proj, float total)> SpellWindow = new Queue<(float, float, float)>();
-        public readonly List<float> Downs = new List<float>();
-
-        public float HpFrac => MaxHp > 0 ? Hp / MaxHp : 1f;
-        public bool Stationary => StillFor >= CrabDirectorMod.Tuning.StationarySeconds;
-        public bool ProjectileBuild => ProjShare >= CrabDirectorMod.Tuning.ProjectileShare;
-    }
-
-    /// <summary>The three inputs (pressure, output, positioning), per player, from the event bus and 4 Hz samples.</summary>
+    /// <summary>Game side of the inputs: event bus subscriptions and the 4 Hz player sample, fed into the core <see cref="Meter"/>.</summary>
     internal static class Inputs
     {
-        public static readonly Dictionary<ulong, PlayerState> Players = new Dictionary<ulong, PlayerState>();
-        public static readonly List<PlayerState> Alive = new List<PlayerState>();
         public static int BusCaptures { get; private set; }
         public static ServerGameplayEventBus Bus { get; private set; }
-        public static int Events;
 
-        // SpellType has no category in code: classified by name (assumed, docs/director.md).
-        private static readonly HashSet<string> Projectile = new HashSet<string>
-        {
-            "Orb", "Boomerang", "Shotgun", "Rifle", "Smg", "BombLauncher", "Arrow", "Splinter", "Sawblade", "Book",
-        };
+        private static Meter Meter => Director.Core.Meter;
+        private static readonly Dictionary<ulong, GameplayPlayer> PlayerObjects = new Dictionary<ulong, GameplayPlayer>();
+        private static readonly List<RawSample> Samples = new List<RawSample>();
 
         // Kept alive for the native side.
         private static Il2CppSystem.Action<OnDamageTakenEventData> _onDamageTaken;
@@ -67,20 +25,12 @@ namespace SpellBrigadeMods.CrabDirector
         private static Il2CppSystem.Action<OnEnemyDamageDealtEventData> _onEnemyDamageDealt;
         private static Il2CppSystem.Action<OnSpellDamageDoneEventData> _onSpellDamageDone;
 
-        private static Tuning T => CrabDirectorMod.Tuning;
+        public static void Reset() => PlayerObjects.Clear();
 
-        public static void Reset()
-        {
-            Players.Clear();
-            Alive.Clear();
-            Events = 0;
-        }
+        public static void Remember(GameplayPlayer p) => PlayerObjects[p.OwnerClientId] = p;
 
-        private static PlayerState Get(ulong id)
-        {
-            if (!Players.TryGetValue(id, out var s)) Players[id] = s = new PlayerState { Id = id };
-            return s;
-        }
+        public static Transform TransformOf(ulong id) =>
+            PlayerObjects.TryGetValue(id, out var p) && p != null ? p.GetTransform() : null;
 
         // ---- event bus ----
 
@@ -112,21 +62,17 @@ namespace SpellBrigadeMods.CrabDirector
             catch (Exception e) { CrabDirectorMod.Log.Error($"bus capture failed: {e}"); }
         }
 
-        private static bool Listening => CrabDirectorMod.Enabled.Value && CrabDirectorMod.IsHostOrSolo();
+        private static bool Listening => CrabDirectorMod.Running;
 
         private static void OnDamageTaken(OnDamageTakenEventData e)
         {
             if (!Listening || e == null) return;
-            Events++;
-            var s = Get(e.VictimClientId);
-            s.AccDmgTaken += e.Damage;
-            s.SecDmgTaken += e.Damage;
-            s.LastHit = Time.time;
+            Meter.DamageTaken(e.VictimClientId, e.Damage, Time.time);
             // Raw for probe 7 (before or after armor): damage vs HP read at event time.
             float hp = -1, max = -1;
             try
             {
-                var hc = s.Player != null ? s.Player.healthContainer : null;
+                var hc = PlayerObjects.TryGetValue(e.VictimClientId, out var p) && p != null ? p.healthContainer : null;
                 if (hc != null) { hp = hc.CurrentHealth; max = hc.MaxHealth; }
             }
             catch { }
@@ -139,55 +85,37 @@ namespace SpellBrigadeMods.CrabDirector
         private static void OnDeath(OnDeathEventData e)
         {
             if (!Listening || e == null) return;
-            Events++;
-            var s = Get(e.VictimClientId);
-            s.AccDowns++;
-            s.SecDowns++;
-            s.Downs.Add(Time.time);
+            Meter.Down(e.VictimClientId, Time.time);
             JsonLog.Write(new Dictionary<string, object> { ["ev"] = "down", ["t"] = Time.time, ["id"] = e.VictimClientId });
         }
 
         private static void OnReviveUsed(OnReviveUsedEventData e)
         {
             if (!Listening) return;
-            Events++;
+            Meter.Events++;
             JsonLog.Write(new Dictionary<string, object> { ["ev"] = "reviveUsed", ["t"] = Time.time });
         }
 
         private static void OnTeammateRevived(OnTeammateRevivedEventData e)
         {
             if (!Listening) return;
-            Events++;
+            Meter.Events++;
             JsonLog.Write(new Dictionary<string, object> { ["ev"] = "teammateRevived", ["t"] = Time.time });
         }
 
         private static void OnEnemyKilled(OnEnemyKilledEventData e)
         {
-            if (!Listening || e == null) return;
-            Events++;
-            var s = Get(e.DamageSourceClientId);
-            s.AccKills++;
-            s.SecKills++;
+            if (Listening && e != null) Meter.Kill(e.DamageSourceClientId);
         }
 
         private static void OnEnemyDamageDealt(OnEnemyDamageDealtEventData e)
         {
-            if (!Listening || e == null) return;
-            Events++;
-            var s = Get(e.DamageSourceClientId);
-            s.AccDealt += e.Damage;
-            s.SecDealt += e.Damage;
+            if (Listening && e != null) Meter.Dealt(e.DamageSourceClientId, e.Damage);
         }
 
         private static void OnSpellDamageDone(OnSpellDamageDoneEventData e)
         {
-            if (!Listening || e == null) return;
-            Events++;
-            var s = Get(e.ClientId);
-            var name = e.SpellType.ToString();
-            s.SecSpell[name] = s.SecSpell.TryGetValue(name, out var v) ? v + e.Amount : e.Amount;
-            s.AccSpellTotal += e.Amount;
-            if (Projectile.Contains(name)) s.AccSpellProj += e.Amount;
+            if (Listening && e != null) Meter.Spell(e.ClientId, e.SpellType.ToString(), e.Amount);
         }
 
         // ---- 4 Hz sample ----
@@ -196,82 +124,22 @@ namespace SpellBrigadeMods.CrabDirector
         {
             var pm = GameplayPlayerManager.Instance;
             if (pm == null) return;
-            var a = 1f - Mathf.Exp(-dt / T.EmaTau);
-
-            foreach (var s in Players.Values) s.Alive = false;
-            Alive.Clear();
+            Samples.Clear();
             var list = pm.AlivePlayers;
             for (var i = 0; list != null && i < list.Count; i++)
             {
                 var p = list[i];
                 if (p == null) continue;
-                var s = Get(p.OwnerClientId);
-                s.Player = p;
-                s.Alive = true;
-                Alive.Add(s);
-
+                var id = p.OwnerClientId;
+                PlayerObjects[id] = p;
+                var r = new RawSample { Id = id, Chasing = p.ChasingEnemyCount };
                 var hc = p.healthContainer;
-                if (hc != null) { s.Hp = hc.CurrentHealth; s.MaxHp = hc.MaxHealth; }
-                s.Chasing = p.ChasingEnemyCount;
-
+                if (hc != null) { r.Hp = hc.CurrentHealth; r.MaxHp = hc.MaxHealth; }
                 var pos = p.GetTransform().position;
-                if (s.HasPos)
-                {
-                    var v = (pos - s.Pos) / dt;
-                    v.y = 0f;
-                    s.Vel = Vector3.Lerp(s.Vel, v, a);
-                    s.Speed += a * (v.magnitude - s.Speed);
-                }
-                s.Pos = pos;
-                s.HasPos = true;
-                s.StillFor = s.Speed < T.StationarySpeed ? s.StillFor + dt : 0f;
+                r.Pos = new V3(pos.x, pos.y, pos.z);
+                Samples.Add(r);
             }
-
-            foreach (var s in Players.Values)
-            {
-                s.DmgTakenRate += a * (s.AccDmgTaken / dt - s.DmgTakenRate);
-                s.KillRate += a * (s.AccKills / dt - s.KillRate);
-                s.DealtRate += a * (s.AccDealt / dt - s.DealtRate);
-
-                // Intensity meter (docs/director.md)
-                var maxHp = Mathf.Max(1f, s.MaxHp);
-                var dI = s.AccDmgTaken / maxHp * T.DamageGain
-                         + T.ChasingGain * s.Chasing * dt
-                         + s.AccDowns * T.DownGain
-                         + (s.Alive && s.MaxHp > 0 && s.HpFrac < T.LowHp ? T.LowHpGain * dt : 0f);
-                if (now - s.LastHit > T.DecayDelay) dI -= T.Decay * dt;
-                s.I = Mathf.Clamp01(s.I + dI);
-
-                s.SpellWindow.Enqueue((now, s.AccSpellProj, s.AccSpellTotal));
-                while (s.SpellWindow.Count > 0 && now - s.SpellWindow.Peek().t > T.ProjectileWindow) s.SpellWindow.Dequeue();
-                float proj = 0, total = 0;
-                foreach (var w in s.SpellWindow) { proj += w.proj; total += w.total; }
-                s.ProjShare = total > 0 ? proj / total : 0f;
-
-                s.Downs.RemoveAll(t => now - t > 60f);
-                s.AccDmgTaken = s.AccDealt = s.AccSpellProj = s.AccSpellTotal = 0f;
-                s.AccKills = s.AccDowns = 0;
-            }
-        }
-
-        public static List<Dictionary<string, object>> SecondLines()
-        {
-            var rows = new List<Dictionary<string, object>>();
-            foreach (var s in Players.Values)
-            {
-                rows.Add(new Dictionary<string, object>
-                {
-                    ["id"] = s.Id, ["alive"] = s.Alive, ["hp"] = s.Hp, ["maxHp"] = s.MaxHp,
-                    ["dmgTaken"] = s.SecDmgTaken, ["kills"] = s.SecKills, ["dealt"] = s.SecDealt,
-                    ["downs"] = s.SecDowns, ["speed"] = s.Speed, ["chasing"] = s.Chasing, ["stillFor"] = s.StillFor,
-                    ["x"] = s.Pos.x, ["z"] = s.Pos.z, ["I"] = s.I, ["projShare"] = s.ProjShare,
-                    ["spell"] = new Dictionary<string, float>(s.SecSpell),
-                });
-                s.SecDmgTaken = s.SecDealt = 0f;
-                s.SecKills = s.SecDowns = s.SecRevives = 0;
-                s.SecSpell.Clear();
-            }
-            return rows;
+            Meter.Sample(now, dt, Samples);
         }
     }
 }
