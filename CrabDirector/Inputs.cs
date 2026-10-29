@@ -10,7 +10,8 @@ namespace SpellBrigadeMods.CrabDirector
     internal static class Inputs
     {
         public static int BusCaptures { get; private set; }
-        public static ServerGameplayEventBus Bus { get; private set; }
+        public static IServerGameplayEventBus Bus { get; private set; }
+        private static IntPtr _busPtr;
 
         private static Meter Meter => Director.Core.Meter;
         private static readonly Dictionary<ulong, GameplayPlayer> PlayerObjects = new Dictionary<ulong, GameplayPlayer>();
@@ -34,7 +35,20 @@ namespace SpellBrigadeMods.CrabDirector
 
         // ---- event bus ----
 
-        public static void BusCtorPostfix(ServerGameplayEventBus __instance)
+        /// <summary>
+        /// The bus from a player's HealthContainer.ServerGameplayEvents (its ctor can't be patched:
+        /// NotSupportedException, 2026-10-29). Re-subscribes when the instance changes.
+        /// </summary>
+        private static void TryCapture(GameplayPlayer p)
+        {
+            var hc = p.healthContainer;
+            var bus = hc != null ? hc.ServerGameplayEvents : null;
+            if (bus == null || bus.Pointer == _busPtr) return;
+            _busPtr = bus.Pointer;
+            Subscribe(bus);
+        }
+
+        private static void Subscribe(IServerGameplayEventBus __instance)
         {
             try
             {
@@ -132,6 +146,8 @@ namespace SpellBrigadeMods.CrabDirector
                 if (p == null) continue;
                 var id = p.OwnerClientId;
                 PlayerObjects[id] = p;
+                try { TryCapture(p); }
+                catch (Exception e) { CrabDirectorMod.Once("bus capture", e); }
                 var r = new RawSample { Id = id, Chasing = p.ChasingEnemyCount };
                 var hc = p.healthContainer;
                 if (hc != null) { r.Hp = hc.CurrentHealth; r.MaxHp = hc.MaxHealth; }

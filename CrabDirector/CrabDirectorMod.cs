@@ -47,8 +47,6 @@ namespace SpellBrigadeMods.CrabDirector
             Log.Msg($"prefs Enabled={Enabled.Value} OnlyInCrabLand={OnlyInCrabLand.Value} LogDecisions={LogDecisions.Value}");
 
             new Hooks(HarmonyInstance, LoggerInstance)
-                .Add("ServerGameplayEventBus..ctor", () => AccessTools.Constructor(typeof(ServerGameplayEventBus), Type.EmptyTypes),
-                    postfix: P(typeof(Inputs), nameof(Inputs.BusCtorPostfix)))
                 .Add<Enemy>("Start", postfix: P(typeof(Census), nameof(Census.StartPostfix)))
                 .Add<Enemy>("OnDestroy", prefix: P(typeof(Census), nameof(Census.OnDestroyPrefix)))
                 .Add<RunManager>("OnNetworkSpawn", postfix: P(typeof(CrabDirectorMod), nameof(RunSpawnedPostfix)))
