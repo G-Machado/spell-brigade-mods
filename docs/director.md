@@ -135,6 +135,23 @@ Called, never hooked: `EnemySpawner.SpawnGroupAsync` `0x287C750`, `EnemyPrefabRe
 
 Every RVA above was checked against the map's shared-RVA set (642 RVAs shared by ≥ 2 methods).
 
+## In-game toggle
+
+`CrabDirector/Overlay.cs`. Prefs in `[CrabDirector]`: `ToggleKey` (default `F8`), `PanelKey` (`F9`), `ShowPanel` (true).
+
+- **ToggleKey / panel button** flip `Enabled` and save prefs right away, so the setting survives a relaunch.
+  Only the host can toggle; on a client the button reads "host only" and does nothing.
+- **Off mid-run**: the `Running` gate goes false, so `Director.Tick` stops (no director spawns, no jsonl
+  `sec` lines) and the `SpawnEnemy` throttle passes everything; native spawning is untouched. **On again**: the
+  same run carries on (same `RunManager`, same log); no new `run` line.
+- Each toggle writes a `toggle` jsonl line (raw: source, host, enabled, runningBefore, directorStarted,
+  directorLive) while a run log is open, and a `toggle` line in the MelonLoader log.
+- Panel (IMGUI, top-left 220×112): On/Off button, phase, I, live / total director crabs, or the idle
+  reason (Enabled off / not host / no run / not Crab Land). If IMGUI throws, the panel turns off and the keys keep working.
+- Keys go through the Input System (the game's), falling back to legacy `Input`; the log says which
+  (`keys: reading through …`). Key names are `UnityEngine.InputSystem.Key` names (`F8`, `Backquote`…).
+- IMGUI doesn't consume Input System input: a click on the panel also reaches the game.
+
 ## Logging (for tuning by Claude)
 
 One JSON line per second to `<game>/UserData/CrabDirector/<run>.jsonl` (fresh file per run): raw

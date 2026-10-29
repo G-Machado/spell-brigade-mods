@@ -37,6 +37,9 @@ namespace SpellBrigadeMods.CrabDirector
         /// <summary>The director is live this frame: enabled, host, in a run, and in Crab Land unless that's off.</summary>
         internal static bool Running { get; private set; }
 
+        /// <summary>Why the director is idle this frame (null while running), for the panel.</summary>
+        internal static string IdleReasonText => _idleReason;
+
         public override void OnInitializeMelon()
         {
             Log = LoggerInstance;
@@ -44,7 +47,8 @@ namespace SpellBrigadeMods.CrabDirector
             Enabled = cat.CreateEntry("Enabled", false, description: "Run the Crab Director (host only)");
             OnlyInCrabLand = cat.CreateEntry("OnlyInCrabLand", true, description: "Only direct while CrabLand's Crab Land is the selected map");
             LogDecisions = cat.CreateEntry("LogDecisions", true, description: "Echo phase changes and spawns to the MelonLoader log (the jsonl log is always written)");
-            Log.Msg($"prefs Enabled={Enabled.Value} OnlyInCrabLand={OnlyInCrabLand.Value} LogDecisions={LogDecisions.Value}");
+            Overlay.Init(cat);
+            Log.Msg($"prefs Enabled={Enabled.Value} OnlyInCrabLand={OnlyInCrabLand.Value} LogDecisions={LogDecisions.Value} ShowPanel={Overlay.ShowPanel.Value} ToggleKey={Overlay.ToggleKey.Value} PanelKey={Overlay.PanelKey.Value}");
 
             new Hooks(HarmonyInstance, LoggerInstance)
                 .Add<Enemy>("Start", postfix: P(typeof(Census), nameof(Census.StartPostfix)))
@@ -67,6 +71,8 @@ namespace SpellBrigadeMods.CrabDirector
 
         public override void OnUpdate()
         {
+            try { Overlay.Update(); }
+            catch (Exception e) { Once("overlay", e); }
             try
             {
                 var reason = IdleReason();
@@ -110,6 +116,8 @@ namespace SpellBrigadeMods.CrabDirector
             });
             Log.Msg($"run start: log {JsonLog.Path} bus={Inputs.BusCaptures} crabLand={CrabLandActive()}");
         }
+
+        public override void OnGUI() => Overlay.Draw();
 
         public override void OnApplicationQuit() => JsonLog.Close();
 
