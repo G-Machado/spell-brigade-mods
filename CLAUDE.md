@@ -11,7 +11,11 @@ Plan, constraints and phases: `PLAN.md`. Hook catalog: `docs/hooks.md`.
   `docs/sbx.md`.
 - The bridge binds 127.0.0.1 only.
 - Never edit game files; mods go in `Mods/` only. Back up the save folder before any mod that
-  touches saves.
+  touches saves, and before the first launch of a new mod build.
+- Never sweep `Il2Cpp.*` wrapper types with reflection (reading `NativeMethodInfoPtr_*` or any
+  static field on many types). Each wrapper's static constructor calls `il2cpp_runtime_class_init`,
+  which runs the game's own static constructor right then. Walk il2cpp's native tables instead
+  (`IL2CPP.il2cpp_image_get_class`, `il2cpp_class_get_methods`), as `SharedCodeGuard` does.
 - A multiplayer change is not done until it has run on two machines.
 
 ## Layout
@@ -34,3 +38,11 @@ Plan, constraints and phases: `PLAN.md`. Hook catalog: `docs/hooks.md`.
   `tools/dump` decompiles those by default (set `CPP2IL=<exe>` to run Cpp2IL standalone).
 - `MainMenuManager.Awake` fires ~2 min after `hooks 1/1` on first launch (main menu load is slow).
 - Run `tools/dump` from outside `docs/game-map/` (a shell cwd inside it blocks the `rm`).
+- Saves: `%USERPROFILE%\AppData\LocalLow\BoltBlasterGames\TheSpellBrigade\`, ten rotating
+  `save_slot_N` files plus `save_meta` (`active_slot`), EasySave3 (AES + gzip). If a save can't be
+  loaded the game starts a fresh profile and writes it over the next slots; older slots keep the
+  old data, and copying a good slot file over the bad ones restores it (no re-encryption needed).
+- Until 2026-10-29 `SharedCodeGuard` swept every wrapper type at mod load. That ran
+  `SaveMigrator`'s static constructor too early (`Version.Parse(null)`), the save failed to load,
+  and the game wrote a fresh profile. Symptom in `Player.log`: `TypeInitializationException` for
+  `SaveMigrator` from `SaveManager.TryValidateAgainstExistingSave`.
