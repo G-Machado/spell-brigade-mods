@@ -1,2 +1,2 @@
-// C: half the damage gain, chasing gain 0.01 -> 0.003 (4 chasers then add 0.012/s vs 0.04/s decay)
-{ "DamageGain": 0.5, "ChasingGain": 0.003 }
+// C: half the damage gain, chasing gain 0.01 -> 0.003 (other knobs at the pre-D values)
+{ "DamageDeadbandDps": 0, "DecayIgnoreHitsUnder": 0, "DamageGain": 0.5, "ChasingGain": 0.003 }

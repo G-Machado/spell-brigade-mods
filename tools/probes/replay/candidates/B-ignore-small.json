@@ -1,2 +1,2 @@
-// B: single hits under 1 HP don't stop the decay (they still add intensity)
-{ "DecayIgnoreHitsUnder": 1.0 }
+// B: single hits under 1 HP don't stop the decay (other knobs at the pre-D values)
+{ "DamageDeadbandDps": 0, "DecayIgnoreHitsUnder": 1.0, "DamageGain": 1.0, "ChasingGain": 0.01 }

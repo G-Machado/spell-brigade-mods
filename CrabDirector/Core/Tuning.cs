@@ -20,17 +20,17 @@ namespace SpellBrigadeMods.CrabDirector
         public float ProjectileWindow = 20f;
 
         // Intensity meter
-        public float DamageGain = 1f;
-        public float ChasingGain = 0.01f;
+        public float DamageGain = 0.5f;          // candidate D (user pick, 2026-10-29); was 1
+        public float ChasingGain = 0.003f;       // D; was 0.01
         public float DownGain = 0.5f;
         public float LowHp = 0.3f;
         public float LowHpGain = 0.05f;
         public float Decay = 0.04f;
         public float DecayDelay = 2f;
-        // Chip-damage tolerance (0 = off): damage/s below the deadband adds nothing and doesn't stop the
+        // Chip-damage tolerance: damage/s below the deadband adds nothing and doesn't stop the
         // decay; single hits under DecayIgnoreHitsUnder don't stop the decay.
-        public float DamageDeadbandDps = 0f;
-        public float DecayIgnoreHitsUnder = 0f;
+        public float DamageDeadbandDps = 2f;     // D; 0 = off
+        public float DecayIgnoreHitsUnder = 1f;  // D; 0 = off
 
         // Phases
         public float PeakEnter = 0.85f;

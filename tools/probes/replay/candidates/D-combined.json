@@ -1,2 +1,2 @@
-// D: A + B + C together (deadband, small hits ignored for the decay, lower gains)
+// D: A + B + C together; the defaults since 2026-10-29 (user pick)
 { "DamageDeadbandDps": 2.0, "DecayIgnoreHitsUnder": 1.0, "DamageGain": 0.5, "ChasingGain": 0.003 }
