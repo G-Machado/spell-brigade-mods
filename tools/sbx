@@ -15,7 +15,7 @@ const GAME = process.env.GAME_DIR || 'C:\\Program Files (x86)\\Steam\\steamapps\
 const USAGE = `usage: sbx <command> [args]
   ping                               bridge reachable? (exit 3 if not)
   state                              NetworkStateMachine state + runtime type of currentState
-  lobby                              runtime type of HostState.lobbyService (needs the Host state)
+  lobby                              runtime type of HostState.lobbyService (current or GetStateFor(Host))
   get <expr>                         evaluate a C# expression (evaluate_expression)
   eval <code>                        run C# statements, 'return' a value (execute_csharp)
   find <Type> [limit]                live objects of a type (find_objects_of_type)
@@ -69,7 +69,10 @@ async function firstOf(label, exprs) {
   return 1;
 }
 
-const NSM = 'Il2Cpp.NetworkStateMachine.Instance';
+// The evaluator can't see statics inherited from a generic base (SingletonPersistent<T>.Instance),
+// and interface-typed fields need a Cast to Il2CppSystem.Object before GetIl2CppType.
+const NSM = 'UnityEngine.Object.FindObjectOfType<Il2Cpp.NetworkStateMachine>()';
+const TYPE = '.Cast<Il2CppSystem.Object>().GetIl2CppType().FullName';
 
 function hookLines(all) {
   const f = path.join(GAME, 'MelonLoader', 'Latest.log');
@@ -92,12 +95,13 @@ async function main(argv) {
     }
     case 'state': {
       const rc = await firstOf('state', [`${NSM}.currentState.GetState()`]);
-      return Math.max(rc, await firstOf('currentState type', [`${NSM}.currentState.GetIl2CppType().FullName`]));
+      return Math.max(rc, await firstOf('currentState type', [`${NSM}.currentState${TYPE}`]));
     }
     case 'lobby':
+      // GetStateFor builds the HostState without entering it (no transition, no lobby created).
       return firstOf('lobbyService type', [
-        `${NSM}.currentState.Cast<Il2Cpp.HostState>().lobbyService.GetIl2CppType().FullName`,
-        `${NSM}.currentState.TryCast<Il2Cpp.HostState>().lobbyService.GetIl2CppType().FullName`,
+        `${NSM}.currentState.Cast<Il2Cpp.HostState>().lobbyService${TYPE}`,
+        `${NSM}.GetStateFor(Il2Cpp.NetworkState.Host).Cast<Il2Cpp.HostState>().lobbyService${TYPE}`,
       ]);
     case 'get': need(1); return out(await tool('evaluate_expression', { expression: a.join(' ') }));
     case 'eval': need(1); return out(await tool('execute_csharp', { code: a.join(' '), timeout: 10000 }));
