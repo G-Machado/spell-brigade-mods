@@ -42,8 +42,7 @@ namespace SpellBrigadeMods.CrabLand
             _maxHealth = health.maxHealth; _isBoss = health.isBoss; _scalePlayers = health.shouldScaleWithAmountOfPlayers;
             _scaleRun = health.shouldScaleWithRunProgression; _ignoreDifficulty = health.shouldIgnoreEnemyDifficultyParameters;
 
-            // DebugSkipToBoss also cuts boss HP so an unattended smoke run can reach the boss defeat.
-            var mult = CrabLandMod.DebugSkipToBoss.Value ? 0.02f : CrabLandMod.BossHealthMultiplier.Value;
+            var mult = CrabLandMod.BossHealthMultiplier.Value * CrabLandMod.DebugBossHealthMultiplier.Value;
             health.maxHealth = native.maxHealth * mult;
             health.isBoss = true;
             health.shouldScaleWithAmountOfPlayers = native.shouldScaleWithAmountOfPlayers;
@@ -51,7 +50,8 @@ namespace SpellBrigadeMods.CrabLand
             health.shouldIgnoreEnemyDifficultyParameters = native.shouldIgnoreEnemyDifficultyParameters;
             cfg.BossPrefab = crab;
             CrabLandMod.Log.Msg($"boss: type={cfg.BossType} native={_nativePrefab.name} nativeMaxHealth={native.maxHealth} " +
-                                $"-> {crab.name} maxHealth {_maxHealth} -> {health.maxHealth}");
+                                $"-> {crab.name} maxHealth {_maxHealth} -> {health.maxHealth} (BossHealthMultiplier={CrabLandMod.BossHealthMultiplier.Value} " +
+                                $"DebugBossHealthMultiplier={CrabLandMod.DebugBossHealthMultiplier.Value})");
         }
 
         public static void SpawnBossPostfix() => RestoreIfSwapped();
@@ -78,6 +78,7 @@ namespace SpellBrigadeMods.CrabLand
             CrabLandMod.Log.Msg($"boss: spawned prefab={boss.name} id={boss.NetworkObjectId} active={CrabLandMod.Active} " +
                                 $"maxHealth={(hc != null ? hc.MaxHealth : -1f)} scale={boss.transform.localScale}");
             Spawns.LogCounts("boss spawn");
+            if (CrabLandMod.Active) BossFight.OnBossSpawned(boss.gameObject);
             if (!CrabLandMod.Active || !Scaled.Add(boss.NetworkObjectId)) return;
             var before = boss.transform.localScale;
             boss.transform.localScale = before * CrabLandMod.CurrentBossScale;
@@ -90,6 +91,7 @@ namespace SpellBrigadeMods.CrabLand
         {
             CrabLandMod.Log.Msg($"boss: defeated (RunManager.HandleBossKilled) active={CrabLandMod.Active}");
             Scaled.Clear();
+            BossFight.OnBossKilled();
         }
 
         public static void RunSuccessfulPostfix() =>

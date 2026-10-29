@@ -26,6 +26,7 @@ Land; the other player joins through the normal online lobby.
 4. Open `...\The Spell Brigade\MelonLoader\Latest.log`. It must contain:
    - `[CrabLand] hooks 22/22`
    - `[CrabLand] prefs AutoStartCrabLand=False DebugGodMode=False DebugSkipToBoss=False ...`
+   - Both PCs must run the same `CrabLand.dll`. A `net: state protocol=1` warning means one PC has the old one.
 
    If it shows a lower hooks count, or no `[CrabLand]` lines at all, send the log to the host.
 
@@ -41,6 +42,11 @@ Land; the other player joins through the normal online lobby.
 - [ ] Only crabs spawn for both (Crabling, FleshCrab, ShieldCrab).
 - [ ] After the first objective succeeds, **each** player gets an infusion pick and can choose an element.
 - [ ] About 5 s later the boss objective starts: a big Crablodon (3× size) with a boss health bar on both screens.
+- [ ] At 75%, 50% and 25% boss HP a ring of Crablings + FleshCrabs spawns around the boss (both see it).
+- [ ] At 50% four ShieldCrabs spawn and the boss takes much less damage until all four die; then full damage again.
+- [ ] Both logs: `fight: shell=on` / `fight: host shell=on` (joiner), then `shieldCrabsLeft=` counting down to 0.
+- [ ] Shell damage cut applied once, not twice: each PC's log has `fight: shell hit #N in=... out=... server=...`.
+      `out` should be about `in` × 0.1. If the host's `in` values look like the joiner's `out` values (≈ ×0.01 overall), report it.
 - [ ] Boss dies, the run ends for both and returns to the menu.
 - [ ] Joiner's `Latest.log` has `boss: scale (1.00, 1.00, 1.00) -> (3.00, 3.00, 3.00)` (proves the joiner scales the boss locally).
 - [ ] Joiner's `Latest.log` has `net: reward from 0` and `reward: OfferSpellInfusion spell=...`.
@@ -51,10 +57,12 @@ After the run, both players send their `Latest.log` to the host.
 
 - The infusion pick hangs or freezes the game: in `...\The Spell Brigade\UserData\MelonPreferences.cfg`,
   under `[CrabLand]`, set `GrantInfusionReward = false` on **both** PCs, then play again.
+- Boss brood/shell misbehaves: set `BossMechanics = false` on the **host** (the shell also cracks by itself after
+  `ShellMaxSeconds`, 60 s).
 - To remove the mod: delete `Mods\CrabLand.dll`.
 
 ## Known gaps
 
 - The reward is the native infusion pick only. The second half of the reward, "that spell's remaining
   levels", is not built yet.
-- The infusion pick has not run live yet; this test is its first run.
+- The infusion pick and the boss brood/shell have not run live yet; this test is their first run.

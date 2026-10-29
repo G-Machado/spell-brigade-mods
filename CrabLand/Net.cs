@@ -20,7 +20,7 @@ namespace SpellBrigadeMods.CrabLand
         private const string StateMsg = "CrabLand.State";
         private const string HelloMsg = "CrabLand.Hello";
         private const string RewardMsg = "CrabLand.Reward";
-        private const byte Protocol = 1;
+        private const byte Protocol = 2;
 
         private static IntPtr _registeredOn;   // CustomMessagingManager the handlers live on
         private static IntPtr _callbackOn;     // NetworkManager the connect callback lives on
@@ -99,10 +99,11 @@ namespace SpellBrigadeMods.CrabLand
             var cmm = NetworkManager.Singleton?.CustomMessagingManager;
             if (cmm == null) return;
             var payload = new List<byte> { Protocol, (byte)(CrabLandMod.Active ? 1 : 0),
-                (byte)Mathf.Clamp(Mathf.RoundToInt(CrabLandMod.BossScale.Value * 10f), 1, 255) };
+                (byte)Mathf.Clamp(Mathf.RoundToInt(CrabLandMod.BossScale.Value * 10f), 1, 255),
+                (byte)(BossFight.ShellOn ? 1 : 0), (byte)Mathf.Clamp(BossFight.ShieldsLeft, 0, 255) };
             payload.AddRange(Encoding.ASCII.GetBytes(CrabLandMod.Version));
             SendBytes(cmm, StateMsg, clientId, payload);
-            Log.Msg($"net: sent state to {(clientId.HasValue ? clientId.Value.ToString() : "all")} active={CrabLandMod.Active}");
+            Log.Msg($"net: sent state to {(clientId.HasValue ? clientId.Value.ToString() : "all")} active={CrabLandMod.Active} shell={BossFight.ShellOn} shieldCrabsLeft={BossFight.ShieldsLeft}");
         }
 
         private static void SendBytes(CustomMessagingManager cmm, string name, ulong? clientId, List<byte> payload)
@@ -135,10 +136,11 @@ namespace SpellBrigadeMods.CrabLand
                 var nm = NetworkManager.Singleton;
                 if (nm != null && nm.IsServer) return;
                 var p = ReadBytes(reader);
-                if (p.Length < 3 || p[0] != Protocol) { Log.Warning($"net: state protocol={(p.Length > 0 ? p[0] : -1)} len={p.Length}, ignored"); return; }
-                var hostVersion = Encoding.ASCII.GetString(p, 3, p.Length - 3);
+                if (p.Length < 5 || p[0] != Protocol) { Log.Warning($"net: state protocol={(p.Length > 0 ? p[0] : -1)} len={p.Length}, ignored"); return; }
+                var hostVersion = Encoding.ASCII.GetString(p, 5, p.Length - 5);
                 Log.Msg($"net: state from {sender} active={p[1]} bossScaleX10={p[2]} hostVersion={hostVersion} ours={CrabLandMod.Version}");
                 CrabLandMod.HostBossScale = p[2] / 10f;
+                BossFight.ApplyHostShell(p[3] == 1, p[4]);
                 CrabLandMod.Active = p[1] == 1;
                 if (CrabLandMod.Active && CrabLandMod.InBaseWorldScene()) Reskin.Apply();
 

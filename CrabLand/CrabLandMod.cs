@@ -23,8 +23,10 @@ namespace SpellBrigadeMods.CrabLand
 
         internal static MelonLogger.Instance Log;
 
-        internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward;
-        internal static MelonPreferences_Entry<float> BossScale, BossHealthMultiplier;
+        internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward, BossMechanics;
+        internal static MelonPreferences_Entry<float> BossScale, BossHealthMultiplier, DebugBossHealthMultiplier, ShellThreshold, RingRadius, ShellDamageMultiplier, ShellMaxSeconds;
+        internal static MelonPreferences_Entry<int> BroodCrablings, BroodFleshCrabs, ShellShieldCrabs;
+        internal static MelonPreferences_Entry<string> BroodThresholds;
 
         private static bool _active;
 
@@ -52,15 +54,27 @@ namespace SpellBrigadeMods.CrabLand
             var cat = MelonPreferences.CreateCategory("CrabLand");
             AutoStartCrabLand = cat.CreateEntry("AutoStartCrabLand", false, description: "Debug: pick Crab Land and start the run from the main menu");
             DebugGodMode = cat.CreateEntry("DebugGodMode", false, description: "Debug: players take no damage");
-            DebugSkipToBoss = cat.CreateEntry("DebugSkipToBoss", false, description: "Debug: first objective forced at 30 s and boss HP x0.02, so the boss comes early and dies fast");
+            DebugSkipToBoss = cat.CreateEntry("DebugSkipToBoss", false, description: "Debug: force the first objective at 30 s so the boss comes early");
             KeepEnemyEvents = cat.CreateEntry("KeepEnemyEvents", false, description: "Keep the native enemy events (they spawn non-crab enemies)");
             GrantInfusionReward = cat.CreateEntry("GrantInfusionReward", true, description: "After the first objective, every player picks an infusion for a spell (turn off if the store hangs)");
             BossScale = cat.CreateEntry("BossScale", 3f, description: "Crablodon boss scale");
             BossHealthMultiplier = cat.CreateEntry("BossHealthMultiplier", 1f, description: "Boss HP = native boss HP x this");
+            DebugBossHealthMultiplier = cat.CreateEntry("DebugBossHealthMultiplier", 1f, description: "Debug: extra boss HP factor (e.g. 0.02 for a fast smoke run)");
+            BossMechanics = cat.CreateEntry("BossMechanics", true, description: "Brood rings and shell phase on the crab boss (host)");
+            ShellMaxSeconds = cat.CreateEntry("ShellMaxSeconds", 60f, description: "Shell cracks by itself after this many seconds");
+            BroodThresholds = cat.CreateEntry("BroodThresholds", "0.75,0.5,0.25", description: "Boss HP fractions that each spawn one brood ring");
+            BroodCrablings = cat.CreateEntry("BroodCrablings", 8, description: "Crablings per brood ring");
+            BroodFleshCrabs = cat.CreateEntry("BroodFleshCrabs", 4, description: "FleshCrabs per brood ring");
+            ShellThreshold = cat.CreateEntry("ShellThreshold", 0.5f, description: "Boss HP fraction that starts the shell phase");
+            ShellShieldCrabs = cat.CreateEntry("ShellShieldCrabs", 4, description: "ShieldCrabs in the shell ring");
+            RingRadius = cat.CreateEntry("RingRadius", 6f, description: "Spawn ring radius around the boss");
+            ShellDamageMultiplier = cat.CreateEntry("ShellDamageMultiplier", 0.1f, description: "Damage the boss takes while the shell is up");
 
             Log.Msg($"prefs AutoStartCrabLand={AutoStartCrabLand.Value} DebugGodMode={DebugGodMode.Value} " +
                     $"DebugSkipToBoss={DebugSkipToBoss.Value} KeepEnemyEvents={KeepEnemyEvents.Value} GrantInfusionReward={GrantInfusionReward.Value} " +
-                    $"BossScale={BossScale.Value} BossHealthMultiplier={BossHealthMultiplier.Value}");
+                    $"BossScale={BossScale.Value} BossHealthMultiplier={BossHealthMultiplier.Value} DebugBossHealthMultiplier={DebugBossHealthMultiplier.Value} " +
+                    $"BossMechanics={BossMechanics.Value} ShellMaxSeconds={ShellMaxSeconds.Value} BroodThresholds={BroodThresholds.Value} BroodCrablings={BroodCrablings.Value} BroodFleshCrabs={BroodFleshCrabs.Value} " +
+                    $"ShellThreshold={ShellThreshold.Value} ShellShieldCrabs={ShellShieldCrabs.Value} RingRadius={RingRadius.Value} ShellDamageMultiplier={ShellDamageMultiplier.Value}");
 
             new Hooks(HarmonyInstance, LoggerInstance)
                 .Add<WorldsPanel>("InitializeButtons", postfix: P(typeof(Menu), nameof(Menu.InitializeButtonsPostfix)))
@@ -98,6 +112,7 @@ namespace SpellBrigadeMods.CrabLand
             {
                 Spawns.ResetCounts();
                 Run.Reset();
+                BossFight.Reset();
                 if (DebugSkipToBoss.Value) MelonCoroutines.Start(Run.DebugForceFirstObjective());
                 MelonCoroutines.Start(Spawns.Census(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
                 if (Active) Reskin.Apply();
@@ -147,8 +162,9 @@ namespace SpellBrigadeMods.CrabLand
             catch (Exception e) { Log.Error($"autostart: StartLevelOnServerRpc failed: {e.Message}"); }
         }
 
-        public static bool TryToDamagePrefix(HealthContainer __instance)
+        public static bool TryToDamagePrefix(HealthContainer __instance, ref float amount)
         {
+            BossFight.ScaleDamage(__instance, ref amount);
             if (!DebugGodMode.Value) return true;
             return __instance.TryCast<PlayerHealthContainer>() == null;
         }
