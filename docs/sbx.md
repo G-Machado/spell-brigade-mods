@@ -41,8 +41,8 @@ refuses to build unless the source holds exactly one listener, `TcpListener(IPAd
 | command | does |
 |---|---|
 | `sbx ping` | exit 0 when the bridge answers, exit 3 when it isn't reachable |
-| `sbx state` | `NetworkStateMachine.Instance.currentState.GetState()` and its runtime type |
-| `sbx lobby` | runtime type of `HostState.lobbyService` (only in the Host state) |
+| `sbx state` | `NetworkStateMachine.currentState.GetState()` and its runtime type |
+| `sbx lobby` | runtime type of `HostState.lobbyService` (current state, else `GetStateFor(Host)` without entering it) |
 | `sbx get <expr>` | evaluate one C# expression |
 | `sbx eval <code>` | run statements; `return` a value |
 | `sbx find <Type> [limit]` | live objects of a Unity type |
@@ -60,10 +60,33 @@ properties of the same name.
 ```bash
 tools/sbx ping
 tools/sbx state
-tools/sbx get 'Il2Cpp.NetworkStateMachine.Instance.IsHost()'
+tools/sbx get 'UnityEngine.Object.FindObjectOfType<Il2Cpp.NetworkStateMachine>().IsHost()'
 tools/sbx log
 ```
 
-## Live check
+## Evaluator rules (live, build 26133722)
 
-(filled in by the live run)
+- Reach singletons with `UnityEngine.Object.FindObjectOfType<Il2Cpp.T>()`: statics inherited from a
+  generic base (`SingletonPersistent<T>.Instance`) are not found, and generic type names don't parse.
+- Interface-typed fields come back as the interface wrapper (`Il2Cpp.INetworkState`). Interface
+  methods work; for the runtime type cast first: `.Cast<Il2CppSystem.Object>().GetIl2CppType().FullName`.
+- Private fields and methods are reachable by their game-map names (`currentState`, `GetStateFor`).
+- Enums: `Il2Cpp.NetworkState.Host`. Generic methods: `Cast<Il2Cpp.HostState>()`.
+- The bridge answers ~30 s after launch; `NetworkStateMachine` exists once StartMenu loads (~1 min).
+- Harmless upstream errors at load: `RunInBackgroundPatch` (Harmony target missing) and
+  "Could not subscribe to Msg logs".
+
+## Live check (2026-10-29, build 26133722, ML 0.7.3)
+
+```
+$ netstat -ano | grep :27015
+  TCP    127.0.0.1:27015        0.0.0.0:0              LISTENING       167240
+$ tools/sbx ping
+bridge ok on 127.0.0.1:27015
+# at StartMenu:
+currentState.GetState()                                     -> Offline   (runtime type OfflineState)
+GetStateFor(Host).Cast<Il2Cpp.HostState>().lobbyService type -> SteamLobbyService (state still Offline)
+$ tools/sbx log
+[CrabLand] hooks 22/22
+[Hello] hooks 1/1
+```
