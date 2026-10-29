@@ -17,8 +17,12 @@ Plan and findings: [PLAN.md](PLAN.md). Rules for working in this repo: [CLAUDE.m
 3. Launch the game once and wait for the main menu (the first launch takes a few minutes while
    MelonLoader generates `MelonLoader/Il2CppAssemblies/`), then quit.
 4. Install the **.NET SDK** (6 or newer) and **Git for Windows** (the scripts run in Git Bash).
-5. Clone this repo and run `scripts/deploy` from Git Bash.
-6. Launch the game; `<game>/MelonLoader/Latest.log` should show `hooks N/N` for each mod.
+5. Back up your save folder:
+   `%USERPROFILE%\AppData\LocalLow\BoltBlasterGames\TheSpellBrigade\` (copy the whole folder).
+6. Clone this repo and run `scripts/deploy` from Git Bash.
+7. Launch the game; `<game>/MelonLoader/Latest.log` should show `hooks N/N` for each mod, and your
+   profile (gold, unlocks) should be intact. If it looks like a new profile, quit and see the
+   save notes in [CLAUDE.md](CLAUDE.md).
 
 Game installed somewhere else? Set both `GAME_DIR` (scripts, Git Bash path form) and `GameDir`
 (MSBuild, Windows path form), or pass `-p:GameDir="D:\...\The Spell Brigade"` to `dotnet build`.

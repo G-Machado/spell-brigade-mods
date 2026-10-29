@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using HarmonyLib;
 using Il2CppInterop.Common;
+using Il2CppInterop.Runtime;
 using MelonLoader;
 
 namespace SpellBrigadeMods.Shared
@@ -68,7 +70,7 @@ namespace SpellBrigadeMods.Shared
 
                     var shared = SharedCodeGuard.FindSharers(target);
                     _log.Msg($"guard {spec.Name}: rva=0x{SharedCodeGuard.Rva(target):X} " +
-                             $"scanned={SharedCodeGuard.ScannedIn(target.DeclaringType.Assembly)} sharers={shared.Count}");
+                             $"scanned={SharedCodeGuard.ScannedFor(target)} sharers={shared.Count}");
                     if (shared.Count > 0)
                     {
                         _log.Warning($"hook {spec.Name}: refused, native body shared with {string.Join(", ", shared.Take(5))}" +
@@ -96,30 +98,39 @@ namespace SpellBrigadeMods.Shared
     /// <summary>
     /// Identical code folding guard: IL2CPP may compile distinct methods to one native body, so a
     /// patch on one changes all. Compares the target's native method pointer with every other
-    /// interop method in the same assembly. Folding across assemblies is not checked.
+    /// method in the same native image. Folding across images is not checked.
+    /// <para>
+    /// The scan walks il2cpp's own class and method tables. It must not touch the interop wrapper
+    /// types: a wrapper's static constructor calls il2cpp_runtime_class_init, so reading any static
+    /// field on every wrapper runs every game static constructor at mod load. That broke
+    /// <c>SaveMigrator</c> (its cctor threw, the save failed to load, the game wrote a fresh profile).
+    /// </para>
     /// </summary>
     public static class SharedCodeGuard
     {
-        private const string PtrFieldPrefix = "NativeMethodInfoPtr_";
-        private static readonly Dictionary<Assembly, Dictionary<IntPtr, List<string>>> ByAssembly =
-            new Dictionary<Assembly, Dictionary<IntPtr, List<string>>>();
+        // native image -> code pointer -> MethodInfo pointers with that code
+        private static readonly Dictionary<IntPtr, Dictionary<IntPtr, List<IntPtr>>> ByImage =
+            new Dictionary<IntPtr, Dictionary<IntPtr, List<IntPtr>>>();
 
         /// <summary>Other methods sharing the target's native body; empty if none or not an interop method.</summary>
         public static List<string> FindSharers(MethodBase target)
         {
-            var self = NativePointer(target);
+            var info = MethodInfoPointer(target);
+            var self = CodePointer(info);
             if (self == IntPtr.Zero) return new List<string>();
 
-            var map = MapFor(target.DeclaringType.Assembly);
-            var selfName = Describe(target);
-            return map.TryGetValue(self, out var names)
-                ? names.Where(n => n != selfName).ToList()
+            return MapFor(ImageOf(info)).TryGetValue(self, out var infos)
+                ? infos.Where(i => i != info).Select(Describe).ToList()
                 : new List<string>();
         }
 
-        /// <summary>Interop methods with a native pointer found in <paramref name="asm"/> (0 if not scanned yet).</summary>
-        public static int ScannedIn(Assembly asm) =>
-            ByAssembly.TryGetValue(asm, out var map) ? map.Values.Sum(l => l.Count) : 0;
+        /// <summary>Methods with native code found in the target's image (0 if not scanned yet).</summary>
+        public static int ScannedFor(MethodBase target)
+        {
+            var info = MethodInfoPointer(target);
+            if (info == IntPtr.Zero) return 0;
+            return ByImage.TryGetValue(ImageOf(info), out var map) ? map.Values.Sum(l => l.Count) : 0;
+        }
 
         /// <summary>Native pointer minus the GameAssembly.dll base: comparable to the game map's RVA.</summary>
         public static long Rva(MethodBase method)
@@ -133,49 +144,66 @@ namespace SpellBrigadeMods.Shared
         }
 
         /// <summary>The compiled code address behind an interop method, or zero.</summary>
-        public static unsafe IntPtr NativePointer(MethodBase method)
+        public static IntPtr NativePointer(MethodBase method) => CodePointer(MethodInfoPointer(method));
+
+        /// <summary>
+        /// The il2cpp MethodInfo behind an interop method, or zero. Reading the wrapper field runs the
+        /// declaring type's static constructor; only call it on types that are about to be patched
+        /// (Harmony's il2cpp patcher reads the same field anyway).
+        /// </summary>
+        private static IntPtr MethodInfoPointer(MethodBase method)
         {
             var field = Il2CppInteropUtils.GetIl2CppMethodInfoPointerFieldForGeneratedMethod(method);
-            if (field == null) return IntPtr.Zero;
-            var methodInfo = (IntPtr)field.GetValue(null);
-            // Il2CppMethodInfo.methodPointer is the first field in every metadata version.
-            return methodInfo == IntPtr.Zero ? IntPtr.Zero : *(IntPtr*)methodInfo;
+            return field == null ? IntPtr.Zero : (IntPtr)field.GetValue(null);
         }
 
-        private static Dictionary<IntPtr, List<string>> MapFor(Assembly asm)
+        // Il2CppMethodInfo.methodPointer is the first field in every metadata version.
+        private static unsafe IntPtr CodePointer(IntPtr methodInfo) =>
+            methodInfo == IntPtr.Zero ? IntPtr.Zero : *(IntPtr*)methodInfo;
+
+        private static IntPtr ImageOf(IntPtr methodInfo) =>
+            IL2CPP.il2cpp_class_get_image(IL2CPP.il2cpp_method_get_class(methodInfo));
+
+        /// <summary>
+        /// Every method with native code in <paramref name="image"/>, read from il2cpp's tables.
+        /// il2cpp_class_get_methods sets up method metadata but never runs a static constructor.
+        /// </summary>
+        private static Dictionary<IntPtr, List<IntPtr>> MapFor(IntPtr image)
         {
-            if (ByAssembly.TryGetValue(asm, out var map)) return map;
-            map = new Dictionary<IntPtr, List<string>>();
+            if (ByImage.TryGetValue(image, out var map)) return map;
+            map = new Dictionary<IntPtr, List<IntPtr>>();
 
-            Type[] types;
-            try { types = asm.GetTypes(); }
-            catch (ReflectionTypeLoadException e) { types = e.Types.Where(t => t != null).ToArray(); }
-
-            const BindingFlags all = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
-                                     BindingFlags.Instance | BindingFlags.DeclaredOnly;
-            foreach (var type in types)
+            var count = IL2CPP.il2cpp_image_get_class_count(image);
+            for (uint i = 0; i < count; i++)
             {
-                // Cheap filter: only generated types carry NativeMethodInfoPtr_ fields.
-                if (!type.GetFields(BindingFlags.NonPublic | BindingFlags.Static)
-                        .Any(f => f.Name.StartsWith(PtrFieldPrefix, StringComparison.Ordinal)))
-                    continue;
+                var klass = IL2CPP.il2cpp_image_get_class(image, i);
+                if (klass == IntPtr.Zero) continue;
 
-                foreach (var m in type.GetMethods(all).Cast<MethodBase>().Concat(type.GetConstructors(all)))
+                var iter = IntPtr.Zero;
+                IntPtr method;
+                while ((method = IL2CPP.il2cpp_class_get_methods(klass, ref iter)) != IntPtr.Zero)
                 {
-                    IntPtr ptr;
-                    try { ptr = NativePointer(m); }
-                    catch { continue; }
-                    if (ptr == IntPtr.Zero) continue;
-                    if (!map.TryGetValue(ptr, out var list)) map[ptr] = list = new List<string>();
-                    list.Add(Describe(m));
+                    var code = CodePointer(method);
+                    if (code == IntPtr.Zero) continue;
+                    if (!map.TryGetValue(code, out var list)) map[code] = list = new List<IntPtr>();
+                    list.Add(method);
                 }
             }
 
-            ByAssembly[asm] = map;
+            ByImage[image] = map;
             return map;
         }
 
-        private static string Describe(MethodBase m) =>
-            $"{m.DeclaringType?.FullName}.{m.Name}({string.Join(",", m.GetParameters().Select(p => p.ParameterType.Name))})";
+        private static string Describe(IntPtr methodInfo)
+        {
+            var klass = IL2CPP.il2cpp_method_get_class(methodInfo);
+            var ns = Marshal.PtrToStringAnsi(IL2CPP.il2cpp_class_get_namespace(klass));
+            var type = Marshal.PtrToStringAnsi(IL2CPP.il2cpp_class_get_name(klass));
+            for (var outer = IL2CPP.il2cpp_class_get_declaring_type(klass); outer != IntPtr.Zero;
+                 outer = IL2CPP.il2cpp_class_get_declaring_type(outer))
+                type = Marshal.PtrToStringAnsi(IL2CPP.il2cpp_class_get_name(outer)) + "+" + type;
+            var name = Marshal.PtrToStringAnsi(IL2CPP.il2cpp_method_get_name(methodInfo));
+            return string.IsNullOrEmpty(ns) ? $"{type}.{name}" : $"{ns}.{type}.{name}";
+        }
     }
 }
