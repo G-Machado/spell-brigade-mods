@@ -35,3 +35,43 @@ Identical code folding: patching one patches all. `SharedCodeGuard` refuses thes
 - `0x230A510` (len 0x12): `DirectConnectionLobbyService.GetPlayerId/GetPlatformLobbyId`
 - `0x2605970`: `MainMenuManager.IsEndlessModeChanged` and `IsPeacefulModeChanged`
 - 693 RVAs in the game map are shared by two or more methods (`grep -rh 'RVA = ' docs/game-map | sort | uniq -d`)
+
+## Candidates (Crab Land)
+
+How a map works (map-only, build 26133722): `World` (Networking.Shared) is a 4-value enum; the
+lobby syncs it as `MainMenuManager.CurrentWorld` (`NetworkVariable<World>`); the scene is
+`Assets/Scenes/<World>.unity` (globalgamemanagers); `WorldConfigurationRepository` holds UI data
+only (icon, thumbnail, name entry). Waves: `RunManager.GetRunConfigurationForWorld` →
+`RunConfiguration.Waves[].EnemyProbabilities` (`EnemyType` + weight); `EnemySpawner` maps
+`EnemyType` → prefab via its `enemyTypeToPrefab` dictionary. Boss: `EndBossObjective` spawns
+`bossConfigToSpawn.BossPrefab` (a `NetworkObject`); HP is `EnemyHealthContainer.maxHealth` on the
+prefab, bar bound by `SetBossHealthContainerRpc`. A new `World` value would reach clients, saves
+(`CompletedDifficultiesPerWorld`) and a missing scene, so Crab Land = base world + a mod flag.
+
+| target | purpose | RVA / len | notes |
+|---|---|---|---|
+| `WorldsPanel.InitializeButtons()` | add the cloned "Crab Land" button | `0x2621670` / `0x3CD` | `worldButtons` list; clone not added to it |
+| `WorldsPanel.OnWorldButtonClicked(World)` | clear the flag on a native pick | `0x2621DE0` / `0xF5` | |
+| `MainMenuManager.OnNetworkSpawn()` | register named messages; auto-start | `0x26062B0` / `0x55C` | |
+| `MainMenuManager.StartLevelOnServerRpc()` | debug auto-start | `0x2608120` / `0x1C1` | called, not patched |
+| `EnemySpawner.CreateEnemyTypeToPrefabDictionary()` | remap every non-crab type to a crab prefab | `0x287B2D0` / `0x171` | data swap; catches waves, elites, groups |
+| `EnemySpawner.SpawnEnemy(NetworkObject, Vector3, EnemySpawnRotation)` | log spawned prefab names | `0x287C600` / `0x14B` | private |
+| `EnemyEventStarterController.StartEvent(EnemyEvent, CancellationToken)` | skip non-crab enemy events | `0x2895570` / `0x167` | plain class |
+| `RunManager.GetRunConfigurationForWorld(World)` | log native pool; debug short run | `0x26E2860` / `0x89` | |
+| `RunManager.HandleBossKilled()` | log boss defeated | `0x26E2A50` / `0x107` | |
+| `EndBossObjective.SpawnBoss()` | swap `BossPrefab` to Crablodon, boss HP | `0x26BB150` / `0x4DB` | prefix + postfix restore |
+| `EndBossObjective.InvokeEnemySpawnedRpc(NetworkObjectReference)` | boss scale on every machine | `0x26BA830` / `0x238` | ClientsAndHost RPC body |
+| `EndBossObjective.FlagRunAsSuccessful()` | log run end | `0x26BA4C0` / `0xB6` | |
+| `HealthContainer.TryToDamage(float, DamageInfo, bool)` | debug god mode (players only) | `0x28CD750` / `0x165` | |
+
+Live findings (CrabLand 0.1.0, build 26133722, 2026-10-28/29): all 12 install (`hooks 12/12`).
+- `CreateEnemyTypeToPrefabDictionary` fires on level load (37 entries); swapping 24 → census shows only Crabling/FleshCrab/ShieldCrab. Enemy events log as `Line` and are skipped.
+- `WorldsPanel.InitializeButtons` fires when the panel opens, not on lobby load; `WorldsPanel.Show()` before that throws (`Single` on empty `worldButtons`); calling `Initialize()` directly NREs.
+- Clone's `OnClickedAction` is never invoked by a click: the panel wires native buttons itself. Rewired via `OnClicked` + `Button.onClick` (untested).
+- `RunManager.GetRunConfigurationForWorld` never fired in a run: inlined or another path. Run length cannot be cut there.
+- Game time froze ~14 min with the window unfocused (coroutine `WaitForSeconds` stalled) — assumed pause-on-focus-loss.
+- Static (game-map, bodies stubbed, so no call graph): objectives end via `ObjectiveDirector.NotifyObjectiveEnded(IAmObjective, bool isSuccessful, float timeLeft)` / event `OnObjectiveEnded`; `SuccessfullyCompletedObjectives` counts them; `ObjectiveDeterminer.Determine(waveNumber, numberOfWaves)` picks the objective per wave.
+- Infusion path (static): `StoreManager.ChooseSpellImprovement` → `CheckForSpellInfusion(spell, level)` → `IInfusionStoreAvailabilityChecker.InfusionStoreShouldBeOffered(spell, spellLevel)` (`baseLevels`/`adjustedLevels`, double infusion) → `OfferSpellInfusion(spell)` → player picks → `ChooseSpellInfusion` → `ImprovementsManager.AddSpellInfusion(SpellType, ElementType)` (host; `SendSpellInfusionRpc(clientId, SpellInfusionMessage)` per client). `StoreType` = LevelUp|Infusion|Variant|Artifact|Debug.
+- "Upgrade tiers" in code = meta progression (`UpgradeTierConfiguration`, `UpgradeManager.GetMaxLevel/IsMaxLevel(UpgradeIdentifier)`), persisted in saves; in-run spell improvements are rarity items, not tiers.
+- Live (probe run 00:09–00:13, 2026-10-29): `ObjectiveDirector.StartObjective(Objective.Hunt)` from code starts a real Hunt; `NotifyObjectiveEnded(success=True)` fires on completion; `StartObjective(Objective.EndBoss)` from code runs the full native boss sequence (Hydra 165000 → Crablodon swap, scale ×3, `HandleBossKilled`, back to MainMenu). `FlagRunAsSuccessful` did not log.
+- Live: infusion offered at spell levels `baseLevels=[7,14]` (`adjustedLevels=[6,13]`); `DetermineSpellLevel` +1 per level-up pick. `SpellAttributes` stores no level (only Element/AmountOfInfusions): level is computed, no setter seen, max level unknown. `ChooseSpellImprovement` prefix never logged although levels rose.

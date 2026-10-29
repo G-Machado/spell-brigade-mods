@@ -31,6 +31,13 @@ with MelonLoader (needs `dotnet tool install -g ilspycmd`). Rerun it after every
 
 `docs/hooks.md` is the hook catalog: target, purpose, proven by, last verified build.
 
+## Live access (`sbx`)
+
+`tools/bridge-build --deploy` builds the MelonMCP bridge from a pinned commit and puts it in
+`<game>/Mods`; it listens on 127.0.0.1:27015 only. With the game running, `tools/sbx` reads and
+drives it from Bash: `sbx ping`, `sbx state`, `sbx get <expr>`, `sbx eval <code>`, `sbx log`.
+Details and examples: `docs/sbx.md`.
+
 ## Working on a mod
 
 - One folder per mod with a `<Mod>/<Mod>.csproj`; `scripts/deploy` builds and copies every one.
