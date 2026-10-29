@@ -53,7 +53,8 @@ namespace SpellBrigadeMods.CrabLand
                 Net.BroadcastReward();
                 GrantLocalInfusion();
             }
-            MelonCoroutines.Start(StartBossAfterDelay(__instance));
+            if (CrabLandMod.ShortRun.Value) MelonCoroutines.Start(StartBossAfterDelay(__instance));
+            else CrabLandMod.Log.Msg("objective: ShortRun=false, native run continues to its own boss");
         }
 
         private static IEnumerator StartBossAfterDelay(ObjectiveDirector director)

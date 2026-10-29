@@ -23,7 +23,7 @@ namespace SpellBrigadeMods.CrabLand
 
         internal static MelonLogger.Instance Log;
 
-        internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward, BossMechanics;
+        internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward, BossMechanics, ShortRun;
         internal static MelonPreferences_Entry<float> BossScale, BossHealthMultiplier, DebugBossHealthMultiplier, ShellThreshold, RingRadius, ShellDamageMultiplier, ShellMaxSeconds;
         internal static MelonPreferences_Entry<int> BroodCrablings, BroodFleshCrabs, ShellShieldCrabs;
         internal static MelonPreferences_Entry<string> BroodThresholds;
@@ -60,6 +60,7 @@ namespace SpellBrigadeMods.CrabLand
             BossScale = cat.CreateEntry("BossScale", 3f, description: "Crablodon boss scale");
             BossHealthMultiplier = cat.CreateEntry("BossHealthMultiplier", 1f, description: "Boss HP = native boss HP x this");
             DebugBossHealthMultiplier = cat.CreateEntry("DebugBossHealthMultiplier", 1f, description: "Debug: extra boss HP factor (e.g. 0.02 for a fast smoke run)");
+            ShortRun = cat.CreateEntry("ShortRun", false, description: "Boss starts right after the first objective (short run); off = full native run");
             BossMechanics = cat.CreateEntry("BossMechanics", true, description: "Brood rings and shell phase on the crab boss (host)");
             ShellMaxSeconds = cat.CreateEntry("ShellMaxSeconds", 60f, description: "Shell cracks by itself after this many seconds");
             BroodThresholds = cat.CreateEntry("BroodThresholds", "0.75,0.5,0.25", description: "Boss HP fractions that each spawn one brood ring");
@@ -73,7 +74,7 @@ namespace SpellBrigadeMods.CrabLand
             Log.Msg($"prefs AutoStartCrabLand={AutoStartCrabLand.Value} DebugGodMode={DebugGodMode.Value} " +
                     $"DebugSkipToBoss={DebugSkipToBoss.Value} KeepEnemyEvents={KeepEnemyEvents.Value} GrantInfusionReward={GrantInfusionReward.Value} " +
                     $"BossScale={BossScale.Value} BossHealthMultiplier={BossHealthMultiplier.Value} DebugBossHealthMultiplier={DebugBossHealthMultiplier.Value} " +
-                    $"BossMechanics={BossMechanics.Value} ShellMaxSeconds={ShellMaxSeconds.Value} BroodThresholds={BroodThresholds.Value} BroodCrablings={BroodCrablings.Value} BroodFleshCrabs={BroodFleshCrabs.Value} " +
+                    $"ShortRun={ShortRun.Value} BossMechanics={BossMechanics.Value} ShellMaxSeconds={ShellMaxSeconds.Value} BroodThresholds={BroodThresholds.Value} BroodCrablings={BroodCrablings.Value} BroodFleshCrabs={BroodFleshCrabs.Value} " +
                     $"ShellThreshold={ShellThreshold.Value} ShellShieldCrabs={ShellShieldCrabs.Value} RingRadius={RingRadius.Value} ShellDamageMultiplier={ShellDamageMultiplier.Value}");
 
             new Hooks(HarmonyInstance, LoggerInstance)

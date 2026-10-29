@@ -41,7 +41,7 @@ Land; the other player joins through the normal online lobby.
 - [ ] Joiner sees the beach reskin (different light/colours from the normal meadow).
 - [ ] Only crabs spawn for both (Crabling, FleshCrab, ShieldCrab).
 - [ ] After the first objective succeeds, **each** player gets an infusion pick and can choose an element.
-- [ ] About 5 s later the boss objective starts: a big Crablodon (3× size) with a boss health bar on both screens.
+- [ ] Full run (`ShortRun = false`, default): later objectives play as normal; the final boss is a big Crablodon (3× size) with a boss health bar on both screens.
 - [ ] At 75%, 50% and 25% boss HP a ring of Crablings + FleshCrabs spawns around the boss (both see it).
 - [ ] At 50% four ShieldCrabs spawn and the boss takes much less damage until all four die; then full damage again.
 - [ ] Both logs: `fight: shell=on` / `fight: host shell=on` (joiner), then `shieldCrabsLeft=` counting down to 0.
