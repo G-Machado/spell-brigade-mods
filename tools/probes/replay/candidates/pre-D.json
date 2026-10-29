@@ -1,0 +1,2 @@
+// The defaults before candidate D was picked (2026-10-29)
+{ "DamageDeadbandDps": 0, "DecayIgnoreHitsUnder": 0, "DamageGain": 1.0, "ChasingGain": 0.01 }
