@@ -47,6 +47,7 @@ namespace SpellBrigadeMods.CrabDirector
             Inputs.Sample(now, dt);
             CheckAwaiting(now);
             Core.Step(now, dt, World);
+            WaveLink.Tick(now);
 
             if (now >= _nextSecond)
             {

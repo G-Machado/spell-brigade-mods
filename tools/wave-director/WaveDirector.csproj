@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Wave director sidecar: reads the mod's wave summaries, writes intent.json (Claude or mock). Not part of the mod DLL. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>wave-director</AssemblyName>
+    <RootNamespace>SpellBrigadeMods.CrabDirector.WaveDirector</RootNamespace>
+    <RollForward>Major</RollForward>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\CrabDirector\Core\Model.cs" Link="Core\Model.cs" />
+    <Compile Include="..\..\CrabDirector\Core\Intent.cs" Link="Core\Intent.cs" />
+    <Compile Include="..\..\CrabDirector\Core\WaveStats.cs" Link="Core\WaveStats.cs" />
+  </ItemGroup>
+</Project>

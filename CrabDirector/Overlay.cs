@@ -15,7 +15,7 @@ namespace SpellBrigadeMods.CrabDirector
         internal static MelonPreferences_Entry<bool> ShowPanel;
         internal static MelonPreferences_Entry<string> ToggleKey, PanelKey;
 
-        private static readonly Rect Box = new Rect(10f, 10f, 220f, 112f);
+        private static readonly Rect Box = new Rect(10f, 10f, 240f, 160f);
         private static string _keySource;
         private static bool _guiFailed;
         private static readonly HashSet<string> Warned = new HashSet<string>();
@@ -72,7 +72,8 @@ namespace SpellBrigadeMods.CrabDirector
                     state = $"{Director.Core.Phase}  I={Director.Core.IParty:F2}  {(CrabDirectorMod.CrabLandActive() ? "crab rules" : "pacing")}\nlive {Census.DirectorTotal}  spawned {Census.DirectorStarted}";
                 else state = $"idle: {CrabDirectorMod.IdleReasonText ?? "-"}";
                 GUI.Label(new Rect(Box.x + 10f, Box.y + 50f, Box.width - 20f, 40f), state);
-                GUI.Label(new Rect(Box.x + 10f, Box.y + 90f, Box.width - 20f, 20f), $"{ToggleKey.Value} on/off   {PanelKey.Value} hide");
+                if (host && CrabDirectorMod.Running) GUI.Label(new Rect(Box.x + 10f, Box.y + 90f, Box.width - 20f, 48f), IntentText());
+                GUI.Label(new Rect(Box.x + 10f, Box.y + 138f, Box.width - 20f, 20f), $"{ToggleKey.Value} on/off   {PanelKey.Value} hide");
             }
             catch (Exception e)
             {
@@ -80,6 +81,15 @@ namespace SpellBrigadeMods.CrabDirector
                 _guiFailed = true;
                 CrabDirectorMod.Log.Error($"panel: IMGUI failed, hotkeys only: {e.GetType().Name}: {e.Message}");
             }
+        }
+
+        /// <summary>The wave director's current intent: theme, source, age, reason.</summary>
+        private static string IntentText()
+        {
+            var i = Director.Core.Intent;
+            var age = WaveLink.AppliedAt >= 0 ? $"{Time.time - WaveLink.AppliedAt:F0}s" : "-";
+            var reason = string.IsNullOrEmpty(i.Reason) ? "" : "\n" + (i.Reason.Length > 60 ? i.Reason.Substring(0, 57) + "..." : i.Reason);
+            return $"intent: {i.Theme ?? "-"} ({i.Source}, {age})\nbudget x{i.BudgetMul:F2}  relax x{i.RelaxMul:F2}{reason}";
         }
 
         private static bool Pressed(string key)

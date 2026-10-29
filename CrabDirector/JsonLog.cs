@@ -11,6 +11,8 @@ namespace SpellBrigadeMods.CrabDirector
         private static StreamWriter _w;
         public static string Path { get; private set; }
         public static int Lines { get; private set; }
+        /// <summary>Each line as written (the wave summary is built from these).</summary>
+        public static Action<string> OnLine;
 
         public static void Open(string dir)
         {
@@ -30,8 +32,10 @@ namespace SpellBrigadeMods.CrabDirector
         public static void Write(Dictionary<string, object> line)
         {
             if (_w == null) return;
-            _w.WriteLine(JsonSerializer.Serialize(line));
+            var json = JsonSerializer.Serialize(line);
+            _w.WriteLine(json);
             Lines++;
+            OnLine?.Invoke(json);
         }
     }
 }

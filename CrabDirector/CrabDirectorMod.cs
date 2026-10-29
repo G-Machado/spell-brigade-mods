@@ -47,12 +47,14 @@ namespace SpellBrigadeMods.CrabDirector
             Enabled = cat.CreateEntry("Enabled", false, description: "Run the Crab Director (host only)");
             LogDecisions = cat.CreateEntry("LogDecisions", true, description: "Echo phase changes and spawns to the MelonLoader log (the jsonl log is always written)");
             Overlay.Init(cat);
+            JsonLog.OnLine = WaveLink.OnLine;
             Log.Msg($"prefs Enabled={Enabled.Value} LogDecisions={LogDecisions.Value} ShowPanel={Overlay.ShowPanel.Value} ToggleKey={Overlay.ToggleKey.Value} PanelKey={Overlay.PanelKey.Value}");
 
             new Hooks(HarmonyInstance, LoggerInstance)
                 .Add<Enemy>("Start", postfix: P(typeof(Census), nameof(Census.StartPostfix)))
                 .Add<Enemy>("OnDestroy", prefix: P(typeof(Census), nameof(Census.OnDestroyPrefix)))
                 .Add<RunManager>("OnNetworkSpawn", postfix: P(typeof(CrabDirectorMod), nameof(RunSpawnedPostfix)))
+                .Add<RunManager>("StartWave", prefix: P(typeof(WaveLink), nameof(WaveLink.StartWavePrefix)))
                 .Add<EnemySpawner._SpawnRandomEnemiesCoroutine_d__25>("MoveNext",
                     prefix: P(typeof(Director), nameof(Director.RandomTickPrefix)),
                     postfix: P(typeof(Director), nameof(Director.RandomTickPostfix)))
@@ -106,6 +108,7 @@ namespace SpellBrigadeMods.CrabDirector
         {
             var tuning = Tuning.Load(Path.Combine(Dir, "rules.json"), m => Log.Msg(m));
             JsonLog.Open(Dir);
+            WaveLink.BeginRun(Path.GetFileNameWithoutExtension(JsonLog.Path), UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, CrabLandActive());
             Director.BeginRun(tuning);
             JsonLog.Write(new Dictionary<string, object>
             {

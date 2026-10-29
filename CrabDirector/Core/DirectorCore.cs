@@ -26,6 +26,8 @@ namespace SpellBrigadeMods.CrabDirector
         public float Now { get; private set; }
         /// <summary>Backing off for CrabLand's boss fight: no spawns, no bank, no throttling.</summary>
         public bool Held { get; private set; }
+        /// <summary>Wave-level intent (budget, relax length, rules, Crab Land mix); defaults at run start.</summary>
+        public Intent Intent = Intent.Defaults();
 
         private Random _rng = new Random();
         private float _phaseStart, _peakLen;
@@ -46,6 +48,7 @@ namespace SpellBrigadeMods.CrabDirector
             Bank = Rate = IParty = 0f;
             _spawnSeq = 0;
             Held = false;
+            Intent = Intent.Defaults();
             Now = now;
             SetPhase(Phase.BuildUp, "run start");
         }
@@ -90,7 +93,7 @@ namespace SpellBrigadeMods.CrabDirector
                 case Phase.BuildUp:
                     var ramp = M.Lerp(T.RampFrom, 1f, inPhase / T.RampSeconds);
                     var players = 1f + T.PerExtraPlayer * Math.Max(0, alive.Count - 1);
-                    Rate = T.PointsPerSecond * ramp * MathF.Max(0.1f, w.WaveMultiplier) * players;
+                    Rate = T.PointsPerSecond * ramp * MathF.Max(0.1f, w.WaveMultiplier) * players * Intent.BudgetMul;
                     Bank = MathF.Min(T.BankMax, Bank + Rate * dt);
                     if (IParty >= T.PeakEnter) { SetPhase(Phase.Peak, $"I={IParty:F2}"); return; }
                     EvaluateRules(now, w, relax: false);
@@ -101,7 +104,7 @@ namespace SpellBrigadeMods.CrabDirector
                     break;
                 case Phase.Relax:
                     Rate = 0f;
-                    if ((inPhase >= T.RelaxMin && IParty < T.RelaxExit) || inPhase >= T.RelaxMax)
+                    if ((inPhase >= T.RelaxMin * Intent.RelaxMul && IParty < T.RelaxExit) || inPhase >= T.RelaxMax * Intent.RelaxMul)
                         SetPhase(Phase.BuildUp, $"relax over I={IParty:F2} after={inPhase:F0}s");
                     else
                         EvaluateRules(now, w, relax: true);
@@ -224,9 +227,9 @@ namespace SpellBrigadeMods.CrabDirector
             {
                 var target = alive[_rng.Next(alive.Count)];
                 var pts = Bank;
-                var nC = (int)(pts * T.MixCrabling / Cost(Crab.Crabling));
-                var nF = (int)(pts * T.MixFleshCrab / Cost(Crab.FleshCrab));
-                var nS = (int)(pts * T.MixShieldCrab / Cost(Crab.ShieldCrab));
+                var nC = (int)(pts * Intent.MixOr(nameof(Crab.Crabling), T.MixCrabling) / Cost(Crab.Crabling));
+                var nF = (int)(pts * Intent.MixOr(nameof(Crab.FleshCrab), T.MixFleshCrab) / Cost(Crab.FleshCrab));
+                var nS = (int)(pts * Intent.MixOr(nameof(Crab.ShieldCrab), T.MixShieldCrab) / Cost(Crab.ShieldCrab));
                 if (w.Count(Crab.ShieldCrab) + nS > T.ShieldShareCap * (CrabTotal(w) + nC + nF + nS)) nS = 0;
                 var any = false;
                 foreach (var (type, n, minD, maxD) in new[] { (Crab.Crabling, nC, 2f, 4f), (Crab.FleshCrab, nF, 2f, 4f), (Crab.ShieldCrab, nS, 1f, 2f) })
@@ -240,7 +243,7 @@ namespace SpellBrigadeMods.CrabDirector
             }
         }
 
-        private bool Ready(string rule, float now) => !_nextAllowed.TryGetValue(rule, out var t) || now >= t;
+        private bool Ready(string rule, float now) => Intent.RuleOn(rule) && (!_nextAllowed.TryGetValue(rule, out var t) || now >= t);
 
         private void Fire(string rule)
         {
@@ -288,7 +291,7 @@ namespace SpellBrigadeMods.CrabDirector
         public Dictionary<string, object> SecondFields() => new Dictionary<string, object>
         {
             ["phase"] = Phase.ToString(), ["held"] = Held, ["I"] = IParty, ["rate"] = Rate, ["bank"] = Bank,
-            ["events"] = Meter.Events, ["rules"] = new Dictionary<string, int>(RuleFires), ["players"] = Meter.SecondLines(),
+            ["events"] = Meter.Events, ["intent"] = Intent.Theme, ["budgetMul"] = Intent.BudgetMul, ["relaxMul"] = Intent.RelaxMul, ["rules"] = new Dictionary<string, int>(RuleFires), ["players"] = Meter.SecondLines(),
         };
 
         // ---- helpers ----

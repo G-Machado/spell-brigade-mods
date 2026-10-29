@@ -179,20 +179,56 @@ damage by `SpellType`. Party: `I_party`, phase, budget, census by `EnemyType`, w
 per director spawn: rule, type, count, target client. Rules and thresholds come from a config file
 (`UserData/CrabDirector/rules.json`), so tuning is a config edit, not a rebuild.
 
-## Optional: wave-level LLM director
+## Wave director (Claude sets intent once per wave)
 
-Claude sets **intent once per wave**, never per frame; the rules above stay the executor.
+Claude sets **intent once per wave**, never per frame; the rules above stay the executor. Host only.
 
-- **When**: at `RunManager.StartWave` (prefix above), the mod writes a wave summary (last wave's log
-  aggregates) and reads `intent.json` if one newer than the summary exists.
-- **Intent** (all optional, clamped by the mod): crab mix weights, budget multiplier 0.5–1.5,
-  relax length, rules on/off, a "theme" label for the log. No positions, no per-spawn calls.
-- **Transport**: `sbx` (loopback bridge, owned by sbx-bridge) exposes `director.summary` /
-  `director.intent`; or a sidecar process calling the API. If no intent arrives by the time the wave
-  starts, the last intent (or defaults) applies: the game never waits on the model.
-- **Why only intent**: latency (seconds) and cost rule out frame decisions; the meter already reacts
-  in 250 ms. The model's job is the slow loop: "they're steamrolling with Rifles, lean on ShieldCrabs
-  next wave".
+- **When**: a `RunManager.StartWave(WaveConfiguration, numberOfWaves)` prefix (`CrabDirector/WaveLink.cs`)
+  flags the wave; the next director tick writes `UserData/CrabDirector/wave/summary-<run>-<NN>.json`
+  (atomic: temp + rename) and a jsonl `wave` line. `<run>` is the jsonl file name, `NN` is
+  `GetCurrentWave()` read a frame after the prefix (assumed to have moved on; the raw value is logged).
+- **Summary**: raw aggregates of the last wave, built by `Core/WaveStats.cs` from the director's own
+  jsonl lines (so `tools/wave-director --replay` rebuilds the same thing from an old log): per player
+  HP start/end/min, damage taken, dealt, kills, downs, chasing mean/max, spell damage by type; party
+  I mean/max, seconds and entries per phase, held seconds, live mean/max, census at the end; spawns per
+  rule; the intent in force; map, `crabLand`, wave `next` / `of`.
+- **Intent** (`Core/Intent.cs`, `wave/intent.json`): `run`, `wave`, `source`, `theme` (40 chars),
+  `reason` (200), `budget` 0.5–1.5 (× BuildUp point rate), `relax` 0.5–2 (× RelaxMin/RelaxMax),
+  `mix` {Crabling, FleshCrab, ShieldCrab} 0–1, normalised (default rule, Crab Land only),
+  `rules` {camper, shields, flank, heavy} on/off (breather and default always run). Polled once a
+  second; applied if newer than the last read and `run` matches; clamped, with every change listed in
+  the jsonl `intent` line (`applied`, `clamped`, `sinceSummary` = seconds from summary to apply). Stale,
+  unreadable or missing → the last intent stays (defaults at run start). The game never waits.
+- **Visible**: the sec line carries `intent` (theme), `budgetMul`, `relaxMul`; the panel shows theme,
+  source (claude / mock / defaults), age, budget, relax and the reason.
+
+### Sidecar: `tools/wave-director`
+
+.NET console app, same PC. Watches the wave folder (newest summary wins, older ones skipped), answers
+with `intent.json`, appends one line per call to `wave/director-calls.jsonl` (ms, and with Claude
+`apiMs`, `status`, `usage`, `stop`, `err`).
+
+- **Claude** (`ANTHROPIC_API_KEY` set): raw `HttpClient` POST to the Messages API, forced
+  `set_intent` tool call against the intent schema, default model `claude-sonnet-5-5` (`--model`).
+  Tools + system prompt (`Prompt.cs`: knobs, crab roles from `docs/crabs.md`, how to read the summary)
+  are one cached prefix (breakpoint on the system block; ~1.3k tokens, above the 1,024 minimum
+  assumed for Sonnet). The key is read from the environment only, never written. Any failure → no
+  intent written, the game keeps the last one.
+- **Mock** (no key, or `--mock`): downs / hpMin < 35 % / Imean > 0.6 → "ease off" (budget 0.75,
+  relax 1.4, heavy off); Imean < 0.25 and hpMin > 70 % → "push" (1.3, 0.7); else "steady".
+- `--dry-run` builds the request and logs its size, sends nothing, writes no intent. `--once`
+  answers the newest summary and exits. `--replay <run.jsonl>` splits an old log at each `wave` change
+  and runs every summary through mock / dry-run / Claude, printing the intents.
+
+```
+dotnet build tools/wave-director/WaveDirector.csproj -c Release
+tools/wave-director/bin/Release/net6.0/wave-director.exe            # watch <game>/UserData/CrabDirector/wave
+tools/wave-director/bin/Release/net6.0/wave-director.exe --replay <game>/UserData/CrabDirector/20261029-182224.jsonl --mock
+```
+
+Offline (2026-10-29, run-2 log `20261029-182224.jsonl`): 9 wave boundaries; mock gave push /
+ease off / steady / steady / ease off / ease off / steady / steady / push. Dry run: request
+6.5–7.7 KB, summary 0.4–1.1 KB, system prompt 4,559 chars.
 
 ## Live probes this design needs (via `sbx`)
 
