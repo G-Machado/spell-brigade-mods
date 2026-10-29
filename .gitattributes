@@ -2,3 +2,5 @@
 scripts/* text eol=lf
 tools/dump text eol=lf
 *.sh text eol=lf
+tools/sbx text eol=lf
+tools/bridge-build text eol=lf
