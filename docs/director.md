@@ -167,6 +167,9 @@ The director runs on every map; `OnlyInCrabLand` is gone.
 - Keys go through the Input System (the game's), falling back to legacy `Input`; the log says which
   (`keys: reading through …`). Key names are `UnityEngine.InputSystem.Key` names (`F8`, `Backquote`…).
 - IMGUI doesn't consume Input System input: a click on the panel also reaches the game.
+- Live 2026-10-29 (Crab Land, `20261029-182224.jsonl`): `keys: reading through inputsystem`; F8 off at t=296 / on at t=300,
+  `directorStarted` 15 at both, no spawns or `sec` lines in between, spawns again after; the panel showed (user), and its
+  button toggled in the main menu (`source=button`), saved to MelonPreferences.cfg. Not yet run: a map other than Crab Land.
 
 ## Logging (for tuning by Claude)
 
