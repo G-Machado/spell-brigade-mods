@@ -100,8 +100,52 @@ namespace SpellBrigadeMods.CrabLand
             catch (Exception e) { CrabLandMod.Log.Error($"reward: failed: {e}"); }
         }
 
+        /// <summary>Probe: objective determiner state at each wave start (logs in every run, Crab Land or not).</summary>
+        public static void StartWavePrefix(RunManager __instance, int numberOfWaves)
+        {
+            try
+            {
+                var d = __instance.objectiveDeterminer;
+                var wave = __instance.CurrentWave.Value;
+                if (d == null) { CrabLandMod.Log.Msg($"probe: StartWave wave={wave}/{numberOfWaves} determiner=null active={CrabLandMod.Active}"); return; }
+                var unlocked = new List<string>();
+                if (d.unlockedObjectives != null) for (int i = 0; i < d.unlockedObjectives.Count; i++) unlocked.Add(d.unlockedObjectives[i].ToString());
+                var waves = new List<string>();
+                if (d.waveNumbersForObjectives != null) for (int i = 0; i < d.waveNumbersForObjectives.Count; i++) waves.Add(d.waveNumbersForObjectives[i].ToString());
+                CrabLandMod.Log.Msg($"probe: StartWave wave={wave}/{numberOfWaves} unlocked=[{string.Join(",", unlocked)}] " +
+                                    $"objectiveWaves=[{string.Join(",", waves)}] beforeRepeat={d.amountOfObjectivesBeforeRepeatObjectives} active={CrabLandMod.Active}");
+            }
+            catch (Exception e) { CrabLandMod.Log.Error($"probe: StartWave failed: {e.Message}"); }
+        }
+
         public static void DetermineObjectivePostfix(int waveNumber, int numberOfWaves) =>
             CrabLandMod.Log.Msg($"objective: determine wave={waveNumber}/{numberOfWaves}");
+
+        /// <summary>
+        /// Host: native objectives unlock through profile progress (none on a new profile), so Crab Land starts
+        /// its own: every ObjectiveInterval seconds, a random type from ObjectivePool when none is active.
+        /// </summary>
+        internal static IEnumerator ObjectiveTimer(int sceneHandle)
+        {
+            var pool = new List<Objective>();
+            foreach (var part in (CrabLandMod.ObjectivePool.Value ?? "").Split(','))
+                if (Enum.TryParse(part.Trim(), out Objective o) && o != Objective.EndBoss) pool.Add(o);
+            var interval = Mathf.Max(30f, CrabLandMod.ObjectiveInterval.Value);
+            CrabLandMod.Log.Msg($"objective timer: pool=[{string.Join(",", pool)}] interval={interval}s");
+            if (pool.Count == 0) { CrabLandMod.Log.Error($"objective timer: ObjectivePool '{CrabLandMod.ObjectivePool.Value}' has no valid type"); yield break; }
+            while (true)
+            {
+                yield return new WaitForSeconds(interval);
+                if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle != sceneHandle || !CrabLandMod.Active) yield break;
+                if (_bossStarted || !CrabLandMod.IsHostOrSolo()) yield break;
+                var director = NetworkSingleton<ObjectiveDirector>.Instance;
+                if (director == null) continue;
+                if (director.ActiveObjective != null) { CrabLandMod.Log.Msg($"objective timer: {Name(director.ActiveObjective)} active, skip"); continue; }
+                var type = pool[UnityEngine.Random.Range(0, pool.Count)];
+                try { CrabLandMod.Log.Msg($"objective timer: start {type} -> {Name(director.StartObjective(type))}"); }
+                catch (Exception e) { CrabLandMod.Log.Error($"objective timer: StartObjective({type}) failed: {e.Message}"); }
+            }
+        }
 
         /// <summary>Debug: start the first objective at 30 s so a smoke run does not wait for its wave.</summary>
         internal static IEnumerator DebugForceFirstObjective()

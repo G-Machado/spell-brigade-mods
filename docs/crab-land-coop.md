@@ -24,7 +24,7 @@ Land; the other player joins through the normal online lobby.
 2. Copy `Mods\CrabLand.dll` into `C:\Program Files (x86)\Steam\steamapps\common\The Spell Brigade\Mods\`.
 3. Launch the game, reach the main menu, then quit.
 4. Open `...\The Spell Brigade\MelonLoader\Latest.log`. It must contain:
-   - `[CrabLand] hooks 23/23`
+   - `[CrabLand] hooks 24/24`
    - `[CrabLand] prefs AutoStartCrabLand=False DebugGodMode=False DebugSkipToBoss=False ...`
    - Both PCs must run the same `CrabLand.dll`. A `net: state protocol=1` warning means one PC has the old one.
 
@@ -40,6 +40,7 @@ Land; the other player joins through the normal online lobby.
 
 - [ ] Joiner sees the beach reskin (different light/colours from the normal meadow).
 - [ ] Only crabs spawn for both (Crabling, FleshCrab, ShieldCrab).
+- [ ] Every ~150 s the host starts an objective (Hunt, Capture or Collect); both see it. Host log: `objective timer: start ...`.
 - [ ] After the first objective succeeds, **each** player gets an infusion pick and can choose an element.
 - [ ] Full run (`ShortRun = false`, default): later objectives play as normal; the final boss is a big Crablodon (3× size) with a boss health bar on both screens.
 - [ ] At 75%, 50% and 25% boss HP a ring of Crablings + FleshCrabs spawns around the boss (both see it).
