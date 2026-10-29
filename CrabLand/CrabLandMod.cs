@@ -61,7 +61,7 @@ namespace SpellBrigadeMods.CrabLand
             BossHealthMultiplier = cat.CreateEntry("BossHealthMultiplier", 1f, description: "Boss HP = native boss HP x this");
             DebugBossHealthMultiplier = cat.CreateEntry("DebugBossHealthMultiplier", 1f, description: "Debug: extra boss HP factor (e.g. 0.02 for a fast smoke run)");
             HideAchievementPopups = cat.CreateEntry("HideAchievementPopups", true, description: "Hide the in-game challenge/achievement unlock popups (unlocks still count)");
-            ObjectivePool = cat.CreateEntry("ObjectivePool", "Hunt,Capture,Collect", description: "Objectives Crab Land starts itself (host); empty = none");
+            ObjectivePool = cat.CreateEntry("ObjectivePool", "", description: "Fallback for profiles without unlocked objectives: types Crab Land starts itself (host), e.g. Hunt,Capture,Collect; empty = native only");
             ObjectiveInterval = cat.CreateEntry("ObjectiveInterval", 150f, description: "Seconds between Crab Land objectives (min 30)");
             CrabDifficulty = cat.CreateEntry("CrabDifficulty", 1.5f, description: "Crab Land: native wave difficulty multiplier x this (host)");
             ShortRun = cat.CreateEntry("ShortRun", false, description: "Boss starts right after the first objective (short run); off = full native run");
