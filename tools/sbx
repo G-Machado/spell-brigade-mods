@@ -1,0 +1,122 @@
+#!/usr/bin/env node
+// sbx — drive the running game from Bash through the MelonMCP bridge (tools/bridge-build).
+// Transport: one JSON-RPC 2.0 object per line over TCP 127.0.0.1:$SBX_PORT (default 27015).
+// Exit: 0 ok, 1 the bridge returned an error, 2 bad usage, 3 bridge not reachable.
+'use strict';
+const net = require('net');
+const fs = require('fs');
+const path = require('path');
+
+const HOST = '127.0.0.1';
+const PORT = +(process.env.SBX_PORT || 27015);
+const TIMEOUT = +(process.env.SBX_TIMEOUT_MS || 15000);
+const GAME = process.env.GAME_DIR || 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Spell Brigade';
+
+const USAGE = `usage: sbx <command> [args]
+  ping                               bridge reachable? (exit 3 if not)
+  state                              NetworkStateMachine state + runtime type of currentState
+  lobby                              runtime type of HostState.lobbyService (needs the Host state)
+  get <expr>                         evaluate a C# expression (evaluate_expression)
+  eval <code>                        run C# statements, 'return' a value (execute_csharp)
+  find <Type> [limit]                live objects of a type (find_objects_of_type)
+  set <goPath> <Component> <member> <value>      set a field/property on a component
+  invoke <goPath> <Component> <method> [json-array-args]
+  tools                              list bridge tools
+  call <tool> [json-object-args]     raw tools/call
+  log [all]                          'hooks N/M' lines from MelonLoader/Latest.log (all: whole log tail)
+env: SBX_PORT, SBX_TIMEOUT_MS, GAME_DIR`;
+
+function rpc(method, params) {
+  return new Promise((resolve, reject) => {
+    const sock = net.createConnection({ host: HOST, port: PORT });
+    let buf = '';
+    const timer = setTimeout(() => { sock.destroy(); reject(Object.assign(new Error(`timeout after ${TIMEOUT} ms`), { code: 'ETIMEDOUT' })); }, TIMEOUT);
+    sock.on('connect', () => sock.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) + '\n'));
+    sock.on('data', d => {
+      buf += d;
+      const nl = buf.indexOf('\n');
+      if (nl < 0) return;
+      clearTimeout(timer); sock.end();
+      try { resolve(JSON.parse(buf.slice(0, nl))); } catch (e) { reject(e); }
+    });
+    sock.on('error', e => { clearTimeout(timer); reject(e); });
+  });
+}
+
+// tools/call → { ok, text }
+async function tool(name, args) {
+  const r = await rpc('tools/call', { name, arguments: args || {} });
+  if (r.error) return { ok: false, text: `${r.error.code}: ${r.error.message}` };
+  const res = r.result || {};
+  const text = (res.content || []).map(c => c.text !== undefined ? c.text : JSON.stringify(c)).join('\n');
+  return { ok: !res.isError, text };
+}
+
+function out({ ok, text }) {
+  (ok ? process.stdout : process.stderr).write(text.endsWith('\n') ? text : text + '\n');
+  return ok ? 0 : 1;
+}
+
+// First expression the bridge evaluates wins; each attempt is printed on failure.
+async function firstOf(label, exprs) {
+  const fails = [];
+  for (const e of exprs) {
+    const r = await tool('evaluate_expression', { expression: e });
+    if (r.ok && !/^(null|error)/i.test(r.text.trim())) { process.stdout.write(`${label}: ${r.text.trim()}\n`); return 0; }
+    fails.push(`  ${e}\n    -> ${r.text.trim().split('\n')[0]}`);
+  }
+  process.stderr.write(`${label}: no expression worked:\n${fails.join('\n')}\n`);
+  return 1;
+}
+
+const NSM = 'Il2Cpp.NetworkStateMachine.Instance';
+
+function hookLines(all) {
+  const f = path.join(GAME, 'MelonLoader', 'Latest.log');
+  if (!fs.existsSync(f)) { process.stderr.write(`sbx: no log at ${f}\n`); return 1; }
+  const lines = fs.readFileSync(f, 'utf8').split(/\r?\n/);
+  const pick = all ? lines.slice(-200) : lines.filter(l => /\bhooks \d+\/\d+/.test(l));
+  if (!pick.length) { process.stderr.write(`sbx: no 'hooks N/M' line in ${f}\n`); return 1; }
+  process.stdout.write(pick.join('\n') + '\n');
+  return 0;
+}
+
+async function main(argv) {
+  const [cmd, ...a] = argv;
+  const need = n => { if (a.length < n) { process.stderr.write(USAGE + '\n'); process.exit(2); } };
+  switch (cmd) {
+    case 'ping': {
+      const r = await rpc('ping', {});
+      if (r.error) return out({ ok: false, text: JSON.stringify(r.error) });
+      process.stdout.write(`bridge ok on ${HOST}:${PORT}\n`); return 0;
+    }
+    case 'state': {
+      const rc = await firstOf('state', [`${NSM}.currentState.GetState()`]);
+      return Math.max(rc, await firstOf('currentState type', [`${NSM}.currentState.GetIl2CppType().FullName`]));
+    }
+    case 'lobby':
+      return firstOf('lobbyService type', [
+        `${NSM}.currentState.Cast<Il2Cpp.HostState>().lobbyService.GetIl2CppType().FullName`,
+        `${NSM}.currentState.TryCast<Il2Cpp.HostState>().lobbyService.GetIl2CppType().FullName`,
+      ]);
+    case 'get': need(1); return out(await tool('evaluate_expression', { expression: a.join(' ') }));
+    case 'eval': need(1); return out(await tool('execute_csharp', { code: a.join(' '), timeout: 10000 }));
+    case 'find': need(1); return out(await tool('find_objects_of_type', { typeName: a[0], limit: +(a[1] || 20) }));
+    case 'set': need(4); return out(await tool('set_property', { gameObjectPath: a[0], componentType: a[1], propertyName: a[2], value: a.slice(3).join(' ') }));
+    case 'invoke': need(3); return out(await tool('invoke_method', { gameObjectPath: a[0], componentType: a[1], methodName: a[2], arguments: a[3] ? JSON.parse(a[3]) : [] }));
+    case 'tools': {
+      const r = await rpc('tools/list', {});
+      if (r.error) return out({ ok: false, text: JSON.stringify(r.error) });
+      process.stdout.write(r.result.tools.map(t => t.name).join('\n') + '\n'); return 0;
+    }
+    case 'call': need(1); return out(await tool(a[0], a[1] ? JSON.parse(a[1]) : {}));
+    case 'log': return hookLines(a[0] === 'all');
+    default: process.stderr.write(USAGE + '\n'); return 2;
+  }
+}
+
+main(process.argv.slice(2)).then(rc => process.exit(rc), e => {
+  const down = ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EHOSTUNREACH'].includes(e.code);
+  process.stderr.write(down ? `sbx: bridge not reachable on ${HOST}:${PORT} (${e.code}); is the game running with MelonMCP.dll in Mods?\n` : `sbx: ${e.stack || e}\n`);
+  process.exit(down ? 3 : 1);
+});

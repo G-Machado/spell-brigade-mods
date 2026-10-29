@@ -7,6 +7,8 @@ Plan, constraints and phases: `PLAN.md`. Hook catalog: `docs/hooks.md`.
 
 - Never name a game type or method that is not in `docs/game-map` or seen in a live probe.
 - Every patch goes through `Shared/Hooks`; report installed and failed counts.
+- Probe live with `tools/sbx` before writing a hook (does it fire, do the values look right);
+  `docs/sbx.md`.
 - The bridge binds 127.0.0.1 only.
 - Never edit game files; mods go in `Mods/` only. Back up the save folder before any mod that
   touches saves.
@@ -18,6 +20,8 @@ Plan, constraints and phases: `PLAN.md`. Hook catalog: `docs/hooks.md`.
 - `Shared/` — Hooks (fail-soft + shared-code guard), linked into each mod as source
 - `Hello/` — P0 smoke mod, logs `hooks 1/1`
 - `scripts/deploy` — build Release, copy mod DLLs to `<game>/Mods`
+- `tools/bridge-build` — builds the MelonMCP bridge from a pinned commit (`--deploy` copies it to Mods)
+- `tools/sbx` — CLI over the bridge (127.0.0.1:27015): ping, state, get, eval, find, set, invoke, log
 - `tools/dump` — regenerates `docs/game-map/` (gitignored); `tools/.bin/` holds downloaded tools (gitignored)
 
 ## Facts (build 26133722, 2026-10-28)
