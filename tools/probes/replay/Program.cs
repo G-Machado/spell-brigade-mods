@@ -114,6 +114,14 @@ namespace SpellBrigadeMods.CrabDirector.Replay
                 },
             },
 
+            // Live run 1 (docs/director-probes.md): stands still, every crab chases (15 -> 47), no damage
+            // reaches the meter (the bus was dead). The meter must still leave I=1 in Relax.
+            new Scenario
+            {
+                Name = "run1", Duration = 240f,
+                Actors = { new Actor { Id = 0, MaxHp = 700f, BaseChasing = t => 15f + 32f * MathF.Min(1f, t / 120f), DamagePerChaser = _ => 0f } },
+            },
+
             // Crab Land boss from 60 to 120 s (CrabLand spawns its brood): no director spawns expected in the window.
             new Scenario
             {

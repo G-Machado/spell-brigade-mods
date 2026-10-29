@@ -23,14 +23,14 @@ namespace SpellBrigadeMods.CrabDirector
         private static readonly List<(int id, Awaitable aw, float t0, float until)> Awaiting = new List<(int, Awaitable, float, float)>();
 
         // Hook counters (probe 5) and relax throttle
-        public static int SpawnRandomCalls, RandomEnemyCalls, SkippedTicks;
+        public static int RandomTicks, RandomSpawns, RandomEnemyCalls, SkippedTicks;
 
         public static void BeginRun(Tuning t)
         {
             Inputs.Reset();
             Census.Reset();
             Awaiting.Clear();
-            SpawnRandomCalls = RandomEnemyCalls = SkippedTicks = 0;
+            RandomTicks = RandomSpawns = RandomEnemyCalls = SkippedTicks = 0;
             _spawnFailures = 0;
             _warnedNoEvents = false;
             _runStart = _nextSample = _nextSecond = Time.time;
@@ -145,7 +145,7 @@ namespace SpellBrigadeMods.CrabDirector
                 ["maxConcurrent"] = World.MaxConcurrent, ["census"] = Census.ByType(false), ["directorCensus"] = Census.ByType(true),
                 ["started"] = Census.Started, ["destroyed"] = Census.Destroyed,
                 ["directorStarted"] = Census.DirectorStarted, ["directorDestroyed"] = Census.DirectorDestroyed, ["bus"] = Inputs.BusCaptures,
-                ["hookCalls"] = new Dictionary<string, int> { ["spawnRandomEnemy"] = SpawnRandomCalls, ["getRandomEnemyForWave"] = RandomEnemyCalls, ["skipped"] = SkippedTicks },
+                ["hookCalls"] = new Dictionary<string, int> { ["randomTick"] = RandomTicks, ["randomSpawn"] = RandomSpawns, ["getRandomEnemyForWave"] = RandomEnemyCalls, ["skipped"] = SkippedTicks },
             };
             foreach (var kv in Core.SecondFields()) line[kv.Key] = kv.Value;
             JsonLog.Write(line);
@@ -160,12 +160,29 @@ namespace SpellBrigadeMods.CrabDirector
 
         // ---- spawner modulation (hooks) ----
 
-        public static bool SpawnRandomEnemyPrefix()
+        // SpawnRandomEnemy is inlined into the random-spawn coroutine (run 1: 0 calls), and the coroutine
+        // passes GetRandomEnemyForWave's result to SpawnEnemy with no null check. So the throttle skips
+        // SpawnEnemy itself, but only inside the coroutine's MoveNext: SpawnEnemy is also called by
+        // SpawnEliteEnemy and by SpawnGroupAsync (the director's own output). The coroutine drops
+        // SpawnEnemy's return value, so returning null there is safe (disassembly, 2026-10-29).
+        private static int _randomTickFrame = -1;
+
+        public static void RandomTickPrefix()
         {
-            SpawnRandomCalls++;
+            RandomTicks++;
+            _randomTickFrame = Time.frameCount;
+        }
+
+        public static void RandomTickPostfix() => _randomTickFrame = -1;
+
+        public static bool SpawnEnemyPrefix(ref Unity.Netcode.NetworkObject __result)
+        {
+            if (_randomTickFrame != Time.frameCount) return true;
+            RandomSpawns++;
             if (!CrabDirectorMod.Running || Core.Held || Core.Phase != Phase.Relax) return true;
             if (Rng.NextDouble() >= Core.T.RelaxSkipChance) return true;
             SkippedTicks++;
+            __result = null;
             return false;
         }
 

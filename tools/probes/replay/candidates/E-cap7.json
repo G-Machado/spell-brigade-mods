@@ -1,0 +1,2 @@
+// E: D + ChasingCap 7 (run-2 chasing fix)
+{ "DamageDeadbandDps": 2.0, "DecayIgnoreHitsUnder": 1.0, "DamageGain": 0.5, "ChasingGain": 0.003, "ChasingCap": 7 }

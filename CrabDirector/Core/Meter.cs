@@ -116,7 +116,7 @@ namespace SpellBrigadeMods.CrabDirector
                 var dmg = MathF.Max(0f, s.AccDmgTaken - T.DamageDeadbandDps * dt);
                 if (dmg > 0f && s.AccHit) s.LastPressure = now;
                 var dI = dmg / maxHp * T.DamageGain
-                         + T.ChasingGain * s.Chasing * dt
+                         + T.ChasingGain * (T.ChasingCap > 0f ? MathF.Min(s.Chasing, T.ChasingCap) : s.Chasing) * dt
                          + s.AccDowns * T.DownGain
                          + (s.Alive && s.MaxHp > 0 && s.HpFrac < T.LowHp ? T.LowHpGain * dt : 0f);
                 if (now - s.LastPressure > T.DecayDelay) dI -= T.Decay * dt;

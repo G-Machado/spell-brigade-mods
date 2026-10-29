@@ -118,13 +118,15 @@ choosing the ring.
 
 | target | kind | RVA / len | use | folded? |
 |---|---|---|---|---|
-| `ServerGameplayEventBus..ctor()` | postfix | `0x28D7A80` / `0x455` | capture the bus | unique |
 | `Enemy.Start()` | postfix | `0x285DA80` / `0x1E1` | census + | unique |
 | `Enemy.OnDestroy()` | prefix | `0x285D2C0` / `0x155` | census − | unique |
 | `RunManager.OnNetworkSpawn()` | postfix | `0x26E2E40` / `0x217` | run start: reset, subscribe `OnWaveChanged` | unique |
 | `RunManager.StartWave(WaveConfiguration, int)` | prefix | `0x26E3BC0` / `0x242` | wave boundary: re-read intent (LLM section) | unique |
-| `EnemySpawner.SpawnRandomEnemy(WaveConfiguration, Vector3)` | prefix | `0x287C9E0` / `0x50` | relax throttle | unique; may be inlined |
-| `EnemySpawner.GetRandomEnemyForWave(WaveConfiguration)` | postfix | `0x287B860` / `0x26E` | bias the mix / throttle fallback | unique |
+| `EnemySpawner._SpawnRandomEnemiesCoroutine_d__25.MoveNext()` | prefix + postfix | `0x2889C60` / `0x464` | marks the random-spawn tick (SpawnRandomEnemy is inlined here, run 1) | unique |
+| `EnemySpawner.SpawnEnemy(NetworkObject, Vector3, EnemySpawnRotation)` | prefix | `0x287C600` / `0x14B` | relax throttle: skip only inside the tick (also called by SpawnEliteEnemy and SpawnGroupAsync); the coroutine drops the result | unique |
+| `EnemySpawner.GetRandomEnemyForWave(WaveConfiguration)` | postfix | `0x287B860` / `0x26E` | counter (bias the mix later); a null result would crash the coroutine (passed to SpawnEnemy unchecked) | unique |
+
+Bus: read from `HealthContainer.ServerGameplayEvents` (Harmony refuses the `ServerGameplayEventBus` ctor, run 1).
 
 Called, never hooked: `EnemySpawner.SpawnGroupAsync` `0x287C750`, `EnemyPrefabRegistry.GetPrefab`
 `0x28741E0`, `Enemy.SetOverrideImmuneToDespawning` `0x285D8D0`, `GameplayPlayer.GetPosition`

@@ -50,8 +50,11 @@ namespace SpellBrigadeMods.CrabDirector
                 .Add<Enemy>("Start", postfix: P(typeof(Census), nameof(Census.StartPostfix)))
                 .Add<Enemy>("OnDestroy", prefix: P(typeof(Census), nameof(Census.OnDestroyPrefix)))
                 .Add<RunManager>("OnNetworkSpawn", postfix: P(typeof(CrabDirectorMod), nameof(RunSpawnedPostfix)))
-                .Add<EnemySpawner>("SpawnRandomEnemy", new[] { typeof(WaveConfiguration), typeof(Vector3) },
-                    prefix: P(typeof(Director), nameof(Director.SpawnRandomEnemyPrefix)))
+                .Add<EnemySpawner._SpawnRandomEnemiesCoroutine_d__25>("MoveNext",
+                    prefix: P(typeof(Director), nameof(Director.RandomTickPrefix)),
+                    postfix: P(typeof(Director), nameof(Director.RandomTickPostfix)))
+                .Add<EnemySpawner>("SpawnEnemy", new[] { typeof(NetworkObject), typeof(Vector3), typeof(EnemySpawnRotation) },
+                    prefix: P(typeof(Director), nameof(Director.SpawnEnemyPrefix)))
                 .Add<EnemySpawner>("GetRandomEnemyForWave", new[] { typeof(WaveConfiguration) },
                     postfix: P(typeof(Director), nameof(Director.GetRandomEnemyForWavePostfix)))
                 .Install();

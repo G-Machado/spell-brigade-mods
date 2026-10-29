@@ -22,6 +22,10 @@ namespace SpellBrigadeMods.CrabDirector
         // Intensity meter
         public float DamageGain = 0.5f;          // candidate D (user pick, 2026-10-29); was 1
         public float ChasingGain = 0.003f;       // D; was 0.01
+        // Chasers counted per player, at most. Solo every crab chases (run 1: 47), and uncapped the term
+        // (0.14/s) beat the decay and pinned I at 1. Capped, ChasingGain * ChasingCap stays under Decay:
+        // chasing alone can't build I, it only adds while damage holds the decay off. 0 = no cap.
+        public float ChasingCap = 7f;            // E (run 2); replay: caps 5/7/10 leave the damage scenarios unchanged
         public float DownGain = 0.5f;
         public float LowHp = 0.3f;
         public float LowHpGain = 0.05f;

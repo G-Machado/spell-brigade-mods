@@ -30,9 +30,9 @@ ev() {
 }
 count_enemies() { node "$SBX" find Il2Cpp.Enemy 2000 2>&1 | grep -c .; }
 
-ES='Il2Cpp.EnemySpawner.Instance'
-RM='Il2Cpp.RunManager.Instance'
-PM='Il2Cpp.GameplayPlayerManager.Instance'
+ES='UnityEngine.Object.FindObjectOfType<Il2Cpp.EnemySpawner>()'
+RM='UnityEngine.Object.FindObjectOfType<Il2Cpp.RunManager>()'
+PM='UnityEngine.Object.FindObjectOfType<Il2Cpp.GameplayPlayerManager>()'
 CRABS="Crabling FleshCrab Snipjaw ShieldCrab Crablodon"
 DIRLOG="$game/UserData/CrabDirector"
 
@@ -82,8 +82,8 @@ p_bus() {       # director 8: bus constructions per run, read from the mod's log
   grep -h 'bus captured' "$game/MelonLoader/Latest.log" 2>/dev/null | sed 's/^/    /' | tee -a "$out"
 }
 
-p_tick() {      # director 5: does SpawnRandomEnemy fire per spawn? Mod counts both hooks.
-  say "## tick: SpawnRandomEnemy vs GetRandomEnemyForWave calls (director 5)"
+p_tick() {      # director 5: SpawnRandomEnemy is inlined; the mod counts coroutine ticks, their SpawnEnemy calls and skips.
+  say "## tick: random-spawn coroutine ticks / SpawnEnemy / skips (director 5)"
   grep -h '"ev":"sec"' "$DIRLOG"/*.jsonl 2>/dev/null | tail -n 5 | grep -o '"hookCalls":{[^}]*}' | sed 's/^/    /' | tee -a "$out"
 }
 
