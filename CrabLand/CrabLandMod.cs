@@ -98,7 +98,6 @@ namespace SpellBrigadeMods.CrabLand
                 .Add<ObjectiveDirector>("NotifyObjectiveEnded", postfix: P(typeof(Run), nameof(Run.ObjectiveEndedPostfix)))
                 .Add<RunManager>("StartWave", prefix: P(typeof(Run), nameof(Run.StartWavePrefix)))
                 .Add<RunManager>("GetWaveDifficultyMultiplier", postfix: P(typeof(CrabLandMod), nameof(WaveDifficultyPostfix)))
-                .Add<ObjectiveDeterminer>("Determine", postfix: P(typeof(Run), nameof(Run.DetermineObjectivePostfix)))
                 .Add<StoreManager>("CheckForSpellInfusion", prefix: P(typeof(Run), nameof(Run.CheckForSpellInfusionPrefix)))
                 .Add<StoreManager>("OfferSpellInfusion", prefix: P(typeof(Run), nameof(Run.OfferSpellInfusionPrefix)))
                 .Add<StoreManager>("ChooseSpellImprovement", prefix: P(typeof(Run), nameof(Run.ChooseSpellImprovementPrefix)))
