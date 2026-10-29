@@ -42,6 +42,9 @@ Plan, constraints and phases: `PLAN.md`. Hook catalog: `docs/hooks.md`.
   `save_slot_N` files plus `save_meta` (`active_slot`), EasySave3 (AES + gzip). If a save can't be
   loaded the game starts a fresh profile and writes it over the next slots; older slots keep the
   old data, and copying a good slot file over the bad ones restores it (no re-encryption needed).
+  File size and slot order don't identify the good slot (2026-10-29: the newest 2112-byte slot
+  loaded with no progress, an older one had it). Snapshot the folder, copy one candidate over all
+  ten slots, check the progress screen in game, repeat.
 - Until 2026-10-29 `SharedCodeGuard` swept every wrapper type at mod load. That ran
   `SaveMigrator`'s static constructor too early (`Version.Parse(null)`), the save failed to load,
   and the game wrote a fresh profile. Symptom in `Player.log`: `TypeInitializationException` for
