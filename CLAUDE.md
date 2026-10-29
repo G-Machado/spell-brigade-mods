@@ -49,3 +49,7 @@ Plan, constraints and phases: `PLAN.md`. Hook catalog: `docs/hooks.md`.
   `SaveMigrator`'s static constructor too early (`Version.Parse(null)`), the save failed to load,
   and the game wrote a fresh profile. Symptom in `Player.log`: `TypeInitializationException` for
   `SaveMigrator` from `SaveManager.TryValidateAgainstExistingSave`.
+- `scripts/deploy <Mod>` copies only the mods named, so the other DLLs in `<game>/Mods` can go stale.
+  2026-10-29: a CrabLand fix (82689b5) was committed and built but never deployed, so objectives
+  stayed broken. Before blaming code, compare the DLL's mtime with the commit, or check the
+  `hooks n/n` line in `MelonLoader/Latest.log`.
