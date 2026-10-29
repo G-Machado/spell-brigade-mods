@@ -1,0 +1,4 @@
+# Bash scripts must stay LF on Windows checkouts (autocrlf would break them)
+scripts/* text eol=lf
+tools/dump text eol=lf
+*.sh text eol=lf

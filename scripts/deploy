@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Build every mod in Release and copy its DLL to <game>/Mods.
+# Usage: scripts/deploy [Mod ...]   (default: every top-level dir with a <Dir>.csproj)
+# GAME_DIR overrides the game folder.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+game="${GAME_DIR:-/c/Program Files (x86)/Steam/steamapps/common/The Spell Brigade}"
+mods="$game/Mods"
+
+if tasklist //FI "IMAGENAME eq TheSpellBrigade.exe" 2>/dev/null | grep -qi thespell; then
+  echo "deploy: the game is running; close it first (DLLs are locked)" >&2; exit 1
+fi
+
+if [ $# -eq 0 ]; then
+  set --
+  for d in "$root"/*/; do n="$(basename "$d")"; [ -f "$d$n.csproj" ] && set -- "$@" "$n"; done
+fi
+[ $# -gt 0 ] || { echo "deploy: no mods found" >&2; exit 1; }
+
+mkdir -p "$mods"
+for m in "$@"; do
+  dotnet build "$root/$m/$m.csproj" -c Release -nologo -v q
+  dll="$root/$m/bin/Release/net6.0/$m.dll"
+  [ -f "$dll" ] || { echo "deploy: $dll not built" >&2; exit 1; }
+  cp "$dll" "$mods/"
+  echo "deploy: $m.dll -> $mods"
+done
