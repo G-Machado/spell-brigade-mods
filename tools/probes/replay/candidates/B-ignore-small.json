@@ -1,0 +1,2 @@
+// B: single hits under 1 HP don't stop the decay (they still add intensity)
+{ "DecayIgnoreHitsUnder": 1.0 }

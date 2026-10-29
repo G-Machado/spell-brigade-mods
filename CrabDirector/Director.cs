@@ -163,7 +163,7 @@ namespace SpellBrigadeMods.CrabDirector
         public static bool SpawnRandomEnemyPrefix()
         {
             SpawnRandomCalls++;
-            if (!CrabDirectorMod.Running || Core.Phase != Phase.Relax) return true;
+            if (!CrabDirectorMod.Running || Core.Held || Core.Phase != Phase.Relax) return true;
             if (Rng.NextDouble() >= Core.T.RelaxSkipChance) return true;
             SkippedTicks++;
             return false;
@@ -175,6 +175,7 @@ namespace SpellBrigadeMods.CrabDirector
         {
             public int Total => Census.Total;
             public int DirectorTotal => Census.DirectorTotal;
+            public bool BossFight => CrabDirectorMod.CrabLandBossFight();
             public int Count(Crab type) => Census.Count((EnemyType)(int)type);
 
             public int MaxConcurrent

@@ -24,6 +24,8 @@ namespace SpellBrigadeMods.CrabDirector
         public float Rate { get; private set; }
         public bool SpawnDisabled { get; set; }
         public float Now { get; private set; }
+        /// <summary>Backing off for CrabLand's boss fight: no spawns, no bank, no throttling.</summary>
+        public bool Held { get; private set; }
 
         private Random _rng = new Random();
         private float _phaseStart, _peakLen;
@@ -43,6 +45,7 @@ namespace SpellBrigadeMods.CrabDirector
             SpawnDisabled = false;
             Bank = Rate = IParty = 0f;
             _spawnSeq = 0;
+            Held = false;
             Now = now;
             SetPhase(Phase.BuildUp, "run start");
         }
@@ -57,6 +60,15 @@ namespace SpellBrigadeMods.CrabDirector
             var kps = Meter.Players.Values.Sum(p => p.KillRate);
             _killHistory.Enqueue((now, kps));
             while (_killHistory.Count > 0 && now - _killHistory.Peek().t > T.HeavyWindow) _killHistory.Dequeue();
+
+            var hold = T.BossBackOff && w.BossFight;
+            if (hold != Held)
+            {
+                Held = hold;
+                Emit(new Dictionary<string, object> { ["ev"] = "hold", ["t"] = now, ["on"] = hold, ["reason"] = "boss fight" });
+                Decide(hold ? "hold: boss fight, director backs off" : "hold off: boss fight over");
+            }
+            if (Held) { Rate = 0f; return; }
 
             var inPhase = now - _phaseStart;
 
@@ -260,7 +272,7 @@ namespace SpellBrigadeMods.CrabDirector
         /// <summary>Director fields of the per-second line; clears the per-second player totals.</summary>
         public Dictionary<string, object> SecondFields() => new Dictionary<string, object>
         {
-            ["phase"] = Phase.ToString(), ["I"] = IParty, ["rate"] = Rate, ["bank"] = Bank,
+            ["phase"] = Phase.ToString(), ["held"] = Held, ["I"] = IParty, ["rate"] = Rate, ["bank"] = Bank,
             ["events"] = Meter.Events, ["rules"] = new Dictionary<string, int>(RuleFires), ["players"] = Meter.SecondLines(),
         };
 

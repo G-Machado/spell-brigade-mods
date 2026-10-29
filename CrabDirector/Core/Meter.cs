@@ -40,6 +40,7 @@ namespace SpellBrigadeMods.CrabDirector
             s.AccDmgTaken += damage;
             s.SecDmgTaken += damage;
             s.LastHit = now;
+            if (damage >= T.DecayIgnoreHitsUnder) s.AccHit = true;
         }
 
         public void Down(ulong id, float now)
@@ -112,11 +113,13 @@ namespace SpellBrigadeMods.CrabDirector
 
                 // Intensity meter (docs/director.md)
                 var maxHp = MathF.Max(1f, s.MaxHp);
-                var dI = s.AccDmgTaken / maxHp * T.DamageGain
+                var dmg = MathF.Max(0f, s.AccDmgTaken - T.DamageDeadbandDps * dt);
+                if (dmg > 0f && s.AccHit) s.LastPressure = now;
+                var dI = dmg / maxHp * T.DamageGain
                          + T.ChasingGain * s.Chasing * dt
                          + s.AccDowns * T.DownGain
                          + (s.Alive && s.MaxHp > 0 && s.HpFrac < T.LowHp ? T.LowHpGain * dt : 0f);
-                if (now - s.LastHit > T.DecayDelay) dI -= T.Decay * dt;
+                if (now - s.LastPressure > T.DecayDelay) dI -= T.Decay * dt;
                 s.I = M.Clamp01(s.I + dI);
 
                 s.SpellWindow.Enqueue((now, s.AccSpellProj, s.AccSpellTotal));
@@ -129,6 +132,7 @@ namespace SpellBrigadeMods.CrabDirector
                 s.Downs.RemoveAll(t => now - t > 60f);
                 s.AccDmgTaken = s.AccDealt = s.AccSpellProj = s.AccSpellTotal = 0f;
                 s.AccKills = s.AccDowns = 0;
+                s.AccHit = false;
             }
         }
 

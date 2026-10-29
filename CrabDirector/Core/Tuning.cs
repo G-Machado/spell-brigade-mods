@@ -27,6 +27,10 @@ namespace SpellBrigadeMods.CrabDirector
         public float LowHpGain = 0.05f;
         public float Decay = 0.04f;
         public float DecayDelay = 2f;
+        // Chip-damage tolerance (0 = off): damage/s below the deadband adds nothing and doesn't stop the
+        // decay; single hits under DecayIgnoreHitsUnder don't stop the decay.
+        public float DamageDeadbandDps = 0f;
+        public float DecayIgnoreHitsUnder = 0f;
 
         // Phases
         public float PeakEnter = 0.85f;
@@ -58,6 +62,9 @@ namespace SpellBrigadeMods.CrabDirector
         // Caps
         public float DirectorShareCap = 0.4f;
         public int DirectorMinAllowance = 12;
+
+        // Crab Land coexistence: no director spawns or throttling while CrabLand's boss fight runs.
+        public bool BossBackOff = true;
 
         private static readonly JsonSerializerOptions Json = new JsonSerializerOptions
         {

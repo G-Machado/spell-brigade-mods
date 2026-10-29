@@ -9,7 +9,7 @@ namespace SpellBrigadeMods.CrabDirector.Replay
     /// Offline replay: synthetic players feed the director core at 4 Hz; prints JSONL to stdout:
     /// phase changes, decisions, spawn calls (what SpawnGroupAsync would get), raw per-second state,
     /// and one summary line per scenario.
-    /// Usage: dotnet run --project tools/probes/replay -- [idle|kiting|killburst|downed|all] [--rules rules.json] [--seed N] [--every S]
+    /// Usage: dotnet run --project tools/probes/replay -- [idle|kiting|killburst|downed|boss|all] [--rules rules.json] [--seed N] [--every S]
     /// </summary>
     internal static class Program
     {
@@ -58,6 +58,9 @@ namespace SpellBrigadeMods.CrabDirector.Replay
     {
         public string Name;
         public float Duration = 180f;
+        /// <summary>CrabLand boss fight window (BossFight._bossHealth set) and the brood it adds to the map.</summary>
+        public float BossFrom = -1f, BossTo = -1f;
+        public int Brood = 15;
         public List<Actor> Actors = new List<Actor>();
     }
 
@@ -110,6 +113,20 @@ namespace SpellBrigadeMods.CrabDirector.Replay
                     },
                 },
             },
+
+            // Crab Land boss from 60 to 120 s (CrabLand spawns its brood): no director spawns expected in the window.
+            new Scenario
+            {
+                Name = "boss", BossFrom = 60f, BossTo = 120f,
+                Actors =
+                {
+                    new Actor
+                    {
+                        Id = 0, Pos = t => Circle(t, 12f, 3f), KillRate = _ => 1.5f, Spell = "Rifle",
+                        BaseChasing = t => t >= 60f && t < 120f ? 8f : 3f,
+                    },
+                },
+            },
         };
     }
 
@@ -133,7 +150,7 @@ namespace SpellBrigadeMods.CrabDirector.Replay
         private readonly Dictionary<string, int> _spawnsByRule = new Dictionary<string, int>();
         private readonly Dictionary<string, float> _phaseTime = new Dictionary<string, float>();
         private float _now, _maxI;
-        private int _downs;
+        private int _downs, _spawnsInBoss;
 
         public Sim(Scenario s, Tuning t, int seed, float every)
         {
@@ -147,7 +164,8 @@ namespace SpellBrigadeMods.CrabDirector.Replay
         }
 
         // IWorld
-        public int Total => GameEnemies + _crabs.Count;
+        public bool BossFight => _now >= _s.BossFrom && _now < _s.BossTo;
+        public int Total => GameEnemies + (BossFight ? _s.Brood : 0) + _crabs.Count;
         public int DirectorTotal => _crabs.Count;
         public int MaxConcurrent => Max;
         public float WaveMultiplier => 1f + _now / 300f;
@@ -171,6 +189,7 @@ namespace SpellBrigadeMods.CrabDirector.Replay
             }
             line["center"] = new[] { center.X, center.Z };
             _spawnsByRule[r.Rule] = (_spawnsByRule.TryGetValue(r.Rule, out var n) ? n : 0) + r.Count;
+            if (BossFight) _spawnsInBoss += r.Count;
             return true;
         }
 
@@ -231,7 +250,7 @@ namespace SpellBrigadeMods.CrabDirector.Replay
                 _core.Meter.Sample(_now, Dt, samples);
                 _core.Step(_now, Dt, this);
                 _maxI = MathF.Max(_maxI, _core.IParty);
-                var ph = _core.Phase.ToString();
+                var ph = _core.Held ? "Held" : _core.Phase.ToString();
                 _phaseTime[ph] = (_phaseTime.TryGetValue(ph, out var pt) ? pt : 0f) + Dt;
 
                 if (_now >= nextSec)
@@ -251,7 +270,7 @@ namespace SpellBrigadeMods.CrabDirector.Replay
             {
                 ["ev"] = "summary", ["duration"] = _s.Duration, ["maxI"] = _maxI, ["downs"] = _downs,
                 ["spawnedByRule"] = _spawnsByRule, ["ruleFires"] = new Dictionary<string, int>(_core.RuleFires),
-                ["phaseSeconds"] = _phaseTime, ["directorLiveAtEnd"] = DirectorTotal,
+                ["phaseSeconds"] = _phaseTime, ["directorLiveAtEnd"] = DirectorTotal, ["spawnsDuringBoss"] = _spawnsInBoss,
             });
         }
     }

@@ -1,0 +1,2 @@
+// A: damage/s under 2 HP/s adds nothing and doesn't stop the decay
+{ "DamageDeadbandDps": 2.0 }

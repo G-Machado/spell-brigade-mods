@@ -37,6 +37,8 @@ namespace SpellBrigadeMods.CrabDirector
         float WaveMultiplier { get; }
         int Count(Crab type);
         int ShieldsNear(V3 pos, float range);
+        /// <summary>CrabLand's boss fight is running (it spawns its own brood).</summary>
+        bool BossFight { get; }
     }
 
     /// <summary>One SpawnGroupAsync call: ring around the target player, or around a point (a helper anchor in game).</summary>
@@ -87,7 +89,8 @@ namespace SpellBrigadeMods.CrabDirector
 
         // Derived
         public float I;
-        public float LastHit = -999f;
+        public float LastHit = -999f, LastPressure = -999f;
+        public bool AccHit;
         public float ProjShare;
         public bool Stationary, ProjectileBuild;
         public readonly Queue<(float t, float proj, float total)> SpellWindow = new Queue<(float, float, float)>();

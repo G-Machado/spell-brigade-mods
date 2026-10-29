@@ -1,0 +1,2 @@
+// D: A + B + C together (deadband, small hits ignored for the decay, lower gains)
+{ "DamageDeadbandDps": 2.0, "DecayIgnoreHitsUnder": 1.0, "DamageGain": 0.5, "ChasingGain": 0.003 }

@@ -30,6 +30,7 @@ namespace SpellBrigadeMods.CrabDirector
         private static IntPtr _run;
         private static string _idleReason;
         private static PropertyInfo _crabLandActive;
+        private static FieldInfo _crabLandBoss;
         private static bool _crabLandLooked;
         private static readonly HashSet<string> Reported = new HashSet<string>();
 
@@ -125,9 +126,22 @@ namespace SpellBrigadeMods.CrabDirector
                 _crabLandLooked = true;
                 var mod = MelonMod.RegisteredMelons.FirstOrDefault(m => m.Info.Name == "CrabLand");
                 _crabLandActive = mod?.GetType().GetProperty("Active", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-                Log.Msg($"crabland: mod={(mod != null)} flag={(_crabLandActive != null)}");
+                // BossFight._bossHealth: the boss's HealthContainer pointer, non-zero from spawn to kill.
+                _crabLandBoss = mod?.GetType().Assembly.GetType("SpellBrigadeMods.CrabLand.BossFight")
+                    ?.GetField("_bossHealth", BindingFlags.Static | BindingFlags.NonPublic);
+                Log.Msg($"crabland: mod={(mod != null)} flag={(_crabLandActive != null)} bossField={(_crabLandBoss != null)}");
+                if (mod != null && (_crabLandActive == null || _crabLandBoss == null))
+                    Log.Error("crabland: loaded but its Active / BossFight._bossHealth members are missing; boss back-off is off");
             }
             try { return _crabLandActive != null && (bool)_crabLandActive.GetValue(null); }
+            catch { return false; }
+        }
+
+        /// <summary>CrabLand's boss fight is running on this machine; false when CrabLand isn't loaded.</summary>
+        internal static bool CrabLandBossFight()
+        {
+            if (!_crabLandLooked) CrabLandActive();
+            try { return _crabLandBoss != null && (IntPtr)_crabLandBoss.GetValue(null) != IntPtr.Zero; }
             catch { return false; }
         }
 
