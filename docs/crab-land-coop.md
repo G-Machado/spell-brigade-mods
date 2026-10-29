@@ -24,7 +24,7 @@ Land; the other player joins through the normal online lobby.
 2. Copy `Mods\CrabLand.dll` into `C:\Program Files (x86)\Steam\steamapps\common\The Spell Brigade\Mods\`.
 3. Launch the game, reach the main menu, then quit.
 4. Open `...\The Spell Brigade\MelonLoader\Latest.log`. It must contain:
-   - `[CrabLand] hooks 22/22`
+   - `[CrabLand] hooks 23/23`
    - `[CrabLand] prefs AutoStartCrabLand=False DebugGodMode=False DebugSkipToBoss=False ...`
    - Both PCs must run the same `CrabLand.dll`. A `net: state protocol=1` warning means one PC has the old one.
 
