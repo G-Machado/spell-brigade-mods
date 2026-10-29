@@ -23,9 +23,9 @@ namespace SpellBrigadeMods.CrabLand
 
         internal static MelonLogger.Instance Log;
 
-        internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward, BossMechanics, ShortRun, HideAchievementPopups;
-        internal static MelonPreferences_Entry<float> BossScale, BossHealthMultiplier, DebugBossHealthMultiplier, ShellThreshold, RingRadius, ShellDamageMultiplier, ShellMaxSeconds, ObjectiveInterval, CrabDifficulty;
-        internal static MelonPreferences_Entry<int> BroodCrablings, BroodFleshCrabs, ShellShieldCrabs;
+        internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward, BossMechanics, ShortRun, HideAchievementPopups, EggCrabs;
+        internal static MelonPreferences_Entry<float> BossScale, BossHealthMultiplier, DebugBossHealthMultiplier, ShellThreshold, RingRadius, ShellDamageMultiplier, ShellMaxSeconds, ObjectiveInterval, CrabDifficulty, EggLayInterval, EggHatchSeconds;
+        internal static MelonPreferences_Entry<int> BroodCrablings, BroodFleshCrabs, ShellShieldCrabs, EggsPerLayer, EggMaxTotal, EggHatchCrablings;
         internal static MelonPreferences_Entry<string> BroodThresholds, ObjectivePool;
 
         private static bool _active;
@@ -74,12 +74,19 @@ namespace SpellBrigadeMods.CrabLand
             ShellShieldCrabs = cat.CreateEntry("ShellShieldCrabs", 4, description: "ShieldCrabs in the shell ring");
             RingRadius = cat.CreateEntry("RingRadius", 6f, description: "Spawn ring radius around the boss");
             ShellDamageMultiplier = cat.CreateEntry("ShellDamageMultiplier", 0.1f, description: "Damage the boss takes while the shell is up");
+            EggCrabs = cat.CreateEntry("EggCrabs", true, description: "Crablodons lay petrified eggs that hatch into Crablings unless broken (host)");
+            EggLayInterval = cat.CreateEntry("EggLayInterval", 10f, description: "Seconds between eggs per Crablodon");
+            EggsPerLayer = cat.CreateEntry("EggsPerLayer", 3, description: "Most unhatched eggs per Crablodon");
+            EggMaxTotal = cat.CreateEntry("EggMaxTotal", 12, description: "Most unhatched eggs overall");
+            EggHatchSeconds = cat.CreateEntry("EggHatchSeconds", 8f, description: "Seconds until an unbroken egg hatches");
+            EggHatchCrablings = cat.CreateEntry("EggHatchCrablings", 4, description: "Crablings per hatched egg");
 
             Log.Msg($"prefs AutoStartCrabLand={AutoStartCrabLand.Value} DebugGodMode={DebugGodMode.Value} " +
                     $"DebugSkipToBoss={DebugSkipToBoss.Value} KeepEnemyEvents={KeepEnemyEvents.Value} GrantInfusionReward={GrantInfusionReward.Value} " +
                     $"BossScale={BossScale.Value} BossHealthMultiplier={BossHealthMultiplier.Value} DebugBossHealthMultiplier={DebugBossHealthMultiplier.Value} " +
                     $"HideAchievementPopups={HideAchievementPopups.Value} ObjectivePool={ObjectivePool.Value} ObjectiveInterval={ObjectiveInterval.Value} CrabDifficulty={CrabDifficulty.Value} ShortRun={ShortRun.Value} BossMechanics={BossMechanics.Value} ShellMaxSeconds={ShellMaxSeconds.Value} BroodThresholds={BroodThresholds.Value} BroodCrablings={BroodCrablings.Value} BroodFleshCrabs={BroodFleshCrabs.Value} " +
-                    $"ShellThreshold={ShellThreshold.Value} ShellShieldCrabs={ShellShieldCrabs.Value} RingRadius={RingRadius.Value} ShellDamageMultiplier={ShellDamageMultiplier.Value}");
+                    $"ShellThreshold={ShellThreshold.Value} ShellShieldCrabs={ShellShieldCrabs.Value} RingRadius={RingRadius.Value} ShellDamageMultiplier={ShellDamageMultiplier.Value} " +
+                    $"EggCrabs={EggCrabs.Value} EggLayInterval={EggLayInterval.Value} EggsPerLayer={EggsPerLayer.Value} EggMaxTotal={EggMaxTotal.Value} EggHatchSeconds={EggHatchSeconds.Value} EggHatchCrablings={EggHatchCrablings.Value}");
 
             new Hooks(HarmonyInstance, LoggerInstance)
                 .Add<WorldsPanel>("InitializeButtons", postfix: P(typeof(Menu), nameof(Menu.InitializeButtonsPostfix)))
@@ -106,6 +113,8 @@ namespace SpellBrigadeMods.CrabLand
                 .Add<SpellImprovementLevelDeterminer>("DetermineSpellLevel", postfix: P(typeof(Run), nameof(Run.DetermineSpellLevelPostfix)))
                 .Add<InfusionStoreAvailabilityChecker>("InfusionStoreShouldBeOffered", postfix: P(typeof(Run), nameof(Run.InfusionShouldBeOfferedPostfix)))
                 .Add<ChallengeNotification>("QueueChallenge", prefix: P(typeof(CrabLandMod), nameof(QueueChallengePrefix)))
+                .Add<PetrifiedEnemy>("OnHealthDepleted", prefix: P(typeof(Eggs), nameof(Eggs.OnHealthDepletedPrefix)))
+                .Add<PetrifiedEnemy>("ReplaceWithRegularEnemy", prefix: P(typeof(Eggs), nameof(Eggs.ReplaceWithRegularEnemyPrefix)))
                 .Install();
         }
 
@@ -120,10 +129,12 @@ namespace SpellBrigadeMods.CrabLand
                 Spawns.ResetCounts();
                 Run.Reset();
                 BossFight.Reset();
+                Eggs.Reset();
                 if (DebugSkipToBoss.Value) MelonCoroutines.Start(Run.DebugForceFirstObjective());
                 if (Active && IsHostOrSolo() && !string.IsNullOrWhiteSpace(ObjectivePool.Value))
                     MelonCoroutines.Start(Run.ObjectiveTimer(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
                 MelonCoroutines.Start(Spawns.Census(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
+                MelonCoroutines.Start(Eggs.Loop(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
                 if (Active) Reskin.Apply();
                 if (IsHostOrSolo()) Net.BroadcastState();
             }

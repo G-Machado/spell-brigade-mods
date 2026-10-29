@@ -139,3 +139,26 @@ Values that live in assets, not code:
 7. Hunt objective: prefab model of `HuntTarget` (golden?), `HealthThresholdSpawnConfiguration` entries.
 8. `PetrifiedEnemy.regularEnemyPrefab` per statue: does breaking it spawn the live crab?
 9. Per world: `WaveConfiguration` world-specific variant replacement (`GetEnemyTypeForSelectedWorld`): do crabs get swapped per world?
+
+## Egg-laying Crablodon (CrabLand `Eggs.cs`, 2026-10-29)
+
+Host only, while Crab Land is active and `EggCrabs` is on. Every live Crablodon (`EnemyType` 7, boss
+included) lays an egg every `EggLayInterval` s (10), 1.5 m behind it, at most `EggsPerLayer` (3)
+unhatched per Crablodon and `EggMaxTotal` (12) overall. After `EggHatchSeconds` (8) an unbroken egg
+despawns and `EggHatchCrablings` (4) Crablings spawn there (`SpawnGroupAsync`, radius 0–1.5 m).
+
+- Egg = `PetrifiedEnemy_Fleshcrab`, the statue prefab whose `regularEnemyPrefab` is a FleshCrab. All three
+  statue prefabs are in memory before any run (`Resources.FindObjectsOfTypeAll<PetrifiedEnemy>()`, filter
+  `scene.IsValid() == false`): `PetrifiedEnemy_ShieldCrab`, `_Crablodon`, `_Fleshcrab`, scale 1.
+- Spawn: `Object.Instantiate` → `LifetimeScopeAccessor.GetContainer()` + VContainer
+  `ObjectResolverUnityExtensions.InjectGameObject` (statues need `Construct(IScreenPointerManager)`) →
+  `NetworkObject.Spawn(true)`. **Live**: no exceptions; egg HP 1147.5 (prefab `maxHealth` reads 0 until spawned).
+- Break: a broken egg must release nothing. `PetrifiedEnemy.ReplaceWithRegularEnemy` never fired when eggs
+  were destroyed (run 1, 2026-10-29), so the break path is elsewhere; the build now also prefixes
+  `PetrifiedEnemy.OnHealthDepleted` and despawns the egg itself. **Not yet verified live** (see below).
+- Live, run 1 (wave 8–12, interval 10 s, god mode, idle player): first egg 17:30:15; by 17:42 laid 405,
+  hatched 155, "gone without break or hatch" 241 (the old build had no break detection, so these are
+  breaks by auto-fire or another removal, unknown which). Native objectives still started on waves 7, 11
+  (PetrifiedEnemies, Herding, Clean).
+- Open: does `OnHealthDepleted` fire on an egg break, and does a native break release a FleshCrab;
+  clients (a client-side break goes through `ReplaceWithRegularEnemyOnServerRpc`, not hooked); two-machine test.

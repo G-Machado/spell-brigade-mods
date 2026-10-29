@@ -8,6 +8,7 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Il2CppRuntime"><HintPath>$(InteropRoot)\Il2CppRuntime.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppVContainer"><HintPath>$(InteropRoot)\Il2CppVContainer.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Il2CppNetworking.Shared"><HintPath>$(InteropRoot)\Il2CppNetworking.Shared.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Unity.Netcode.Runtime"><HintPath>$(InteropRoot)\Unity.Netcode.Runtime.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Unity.Collections"><HintPath>$(InteropRoot)\Unity.Collections.dll</HintPath><Private>false</Private></Reference>
