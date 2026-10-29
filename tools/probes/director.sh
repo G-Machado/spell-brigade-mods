@@ -6,7 +6,7 @@
 # Env: SBX (path to tools/sbx), GAME_DIR, OUT (default tools/probes/out/director-<ts>.txt, fresh per run).
 set -uo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-SBX="${SBX:-/c/Users/gabri/source/repos/spell-brigade-mods-sbx-bridge/tools/sbx}"
+SBX="${SBX:-/c/Users/gabri/source/repos/spell-brigade-mods/tools/sbx}"
 game="${GAME_DIR:-/c/Program Files (x86)/Steam/steamapps/common/The Spell Brigade}"
 out="${OUT:-$root/tools/probes/out/director-$(date +%Y%m%d-%H%M%S).txt}"
 mkdir -p "$(dirname "$out")"; : > "$out"
