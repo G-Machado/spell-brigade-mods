@@ -8,26 +8,26 @@ namespace SpellBrigadeMods.CrabLand
     /// <summary>Crab-only spawning by rewriting the spawner's EnemyType → prefab table; wave pacing stays native.</summary>
     internal static class Spawns
     {
-        // Swap by role: swarm → Crabling, mid melee → FleshCrab, ranged/spawners → ShieldCrab, elites → Crablodon.
+        // Swap by role, swarm spread over the three small crabs so no single type dominates; one mid type and the elites → Crablodon.
         // Not touched: the crabs, bosses and their minions, enemy events, hunt targets, the cursed artifact.
         private static readonly Dictionary<EnemyType, EnemyType> Role = new Dictionary<EnemyType, EnemyType>
         {
             [EnemyType.Tripod] = EnemyType.Crabling,
-            [EnemyType.SneakyBug] = EnemyType.Crabling,
+            [EnemyType.SneakyBug] = EnemyType.FleshCrab,
             [EnemyType.ExplodingTick] = EnemyType.Crabling,
-            [EnemyType.ExplodingTickFast] = EnemyType.Crabling,
-            [EnemyType.Mole] = EnemyType.Crabling,
-            [EnemyType.Stinkbug] = EnemyType.Crabling,
+            [EnemyType.ExplodingTickFast] = EnemyType.FleshCrab,
+            [EnemyType.Mole] = EnemyType.ShieldCrab,
+            [EnemyType.Stinkbug] = EnemyType.ShieldCrab,
             [EnemyType.SpawnerHatchling] = EnemyType.Crabling,
             [EnemyType.TeethyWorm_Baby] = EnemyType.Crabling,
-            [EnemyType.TeethyWorm_BabyFast] = EnemyType.Crabling,
-            [EnemyType.TeethyWorm] = EnemyType.FleshCrab,
+            [EnemyType.TeethyWorm_BabyFast] = EnemyType.FleshCrab,
+            [EnemyType.TeethyWorm] = EnemyType.ShieldCrab,
             [EnemyType.TeethyWormFast] = EnemyType.FleshCrab,
             [EnemyType.Buffer] = EnemyType.FleshCrab,
             [EnemyType.BufferFast] = EnemyType.FleshCrab,
             [EnemyType.Hoarder] = EnemyType.FleshCrab,
             [EnemyType.FlyingManta] = EnemyType.FleshCrab,
-            [EnemyType.Snipjaw] = EnemyType.FleshCrab,
+            [EnemyType.Snipjaw] = EnemyType.Crablodon,
             [EnemyType.Spitter] = EnemyType.ShieldCrab,
             [EnemyType.SpitterSpread] = EnemyType.ShieldCrab,
             [EnemyType.StaticShooter] = EnemyType.ShieldCrab,

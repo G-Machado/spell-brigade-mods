@@ -24,7 +24,7 @@ namespace SpellBrigadeMods.CrabLand
         internal static MelonLogger.Instance Log;
 
         internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward, BossMechanics, ShortRun, HideAchievementPopups;
-        internal static MelonPreferences_Entry<float> BossScale, BossHealthMultiplier, DebugBossHealthMultiplier, ShellThreshold, RingRadius, ShellDamageMultiplier, ShellMaxSeconds, ObjectiveInterval;
+        internal static MelonPreferences_Entry<float> BossScale, BossHealthMultiplier, DebugBossHealthMultiplier, ShellThreshold, RingRadius, ShellDamageMultiplier, ShellMaxSeconds, ObjectiveInterval, CrabDifficulty;
         internal static MelonPreferences_Entry<int> BroodCrablings, BroodFleshCrabs, ShellShieldCrabs;
         internal static MelonPreferences_Entry<string> BroodThresholds, ObjectivePool;
 
@@ -63,6 +63,7 @@ namespace SpellBrigadeMods.CrabLand
             HideAchievementPopups = cat.CreateEntry("HideAchievementPopups", true, description: "Hide the in-game challenge/achievement unlock popups (unlocks still count)");
             ObjectivePool = cat.CreateEntry("ObjectivePool", "Hunt,Capture,Collect", description: "Objectives Crab Land starts itself (host); empty = none");
             ObjectiveInterval = cat.CreateEntry("ObjectiveInterval", 150f, description: "Seconds between Crab Land objectives (min 30)");
+            CrabDifficulty = cat.CreateEntry("CrabDifficulty", 1.5f, description: "Crab Land: native wave difficulty multiplier x this (host)");
             ShortRun = cat.CreateEntry("ShortRun", false, description: "Boss starts right after the first objective (short run); off = full native run");
             BossMechanics = cat.CreateEntry("BossMechanics", true, description: "Brood rings and shell phase on the crab boss (host)");
             ShellMaxSeconds = cat.CreateEntry("ShellMaxSeconds", 60f, description: "Shell cracks by itself after this many seconds");
@@ -77,7 +78,7 @@ namespace SpellBrigadeMods.CrabLand
             Log.Msg($"prefs AutoStartCrabLand={AutoStartCrabLand.Value} DebugGodMode={DebugGodMode.Value} " +
                     $"DebugSkipToBoss={DebugSkipToBoss.Value} KeepEnemyEvents={KeepEnemyEvents.Value} GrantInfusionReward={GrantInfusionReward.Value} " +
                     $"BossScale={BossScale.Value} BossHealthMultiplier={BossHealthMultiplier.Value} DebugBossHealthMultiplier={DebugBossHealthMultiplier.Value} " +
-                    $"HideAchievementPopups={HideAchievementPopups.Value} ObjectivePool={ObjectivePool.Value} ObjectiveInterval={ObjectiveInterval.Value} ShortRun={ShortRun.Value} BossMechanics={BossMechanics.Value} ShellMaxSeconds={ShellMaxSeconds.Value} BroodThresholds={BroodThresholds.Value} BroodCrablings={BroodCrablings.Value} BroodFleshCrabs={BroodFleshCrabs.Value} " +
+                    $"HideAchievementPopups={HideAchievementPopups.Value} ObjectivePool={ObjectivePool.Value} ObjectiveInterval={ObjectiveInterval.Value} CrabDifficulty={CrabDifficulty.Value} ShortRun={ShortRun.Value} BossMechanics={BossMechanics.Value} ShellMaxSeconds={ShellMaxSeconds.Value} BroodThresholds={BroodThresholds.Value} BroodCrablings={BroodCrablings.Value} BroodFleshCrabs={BroodFleshCrabs.Value} " +
                     $"ShellThreshold={ShellThreshold.Value} ShellShieldCrabs={ShellShieldCrabs.Value} RingRadius={RingRadius.Value} ShellDamageMultiplier={ShellDamageMultiplier.Value}");
 
             new Hooks(HarmonyInstance, LoggerInstance)
@@ -96,6 +97,7 @@ namespace SpellBrigadeMods.CrabLand
                 .Add<ObjectiveDirector>("NotifyObjectiveStarted", postfix: P(typeof(Run), nameof(Run.ObjectiveStartedPostfix)))
                 .Add<ObjectiveDirector>("NotifyObjectiveEnded", postfix: P(typeof(Run), nameof(Run.ObjectiveEndedPostfix)))
                 .Add<RunManager>("StartWave", prefix: P(typeof(Run), nameof(Run.StartWavePrefix)))
+                .Add<RunManager>("GetWaveDifficultyMultiplier", postfix: P(typeof(CrabLandMod), nameof(WaveDifficultyPostfix)))
                 .Add<ObjectiveDeterminer>("Determine", postfix: P(typeof(Run), nameof(Run.DetermineObjectivePostfix)))
                 .Add<StoreManager>("CheckForSpellInfusion", prefix: P(typeof(Run), nameof(Run.CheckForSpellInfusionPrefix)))
                 .Add<StoreManager>("OfferSpellInfusion", prefix: P(typeof(Run), nameof(Run.OfferSpellInfusionPrefix)))
@@ -176,6 +178,18 @@ namespace SpellBrigadeMods.CrabLand
             if (!HideAchievementPopups.Value) return true;
             Log.Msg($"popup: hid challenge notification id={challengeId}");
             return false;
+        }
+
+        private static float _lastDifficulty = -1f;
+
+        public static void WaveDifficultyPostfix(ref float __result)
+        {
+            if (!Active) return;
+            var native = __result;
+            __result = native * CrabDifficulty.Value;
+            if (Mathf.Abs(native - _lastDifficulty) < 0.01f) return;   // log when the native value moves
+            _lastDifficulty = native;
+            Log.Msg($"difficulty: native={native} x{CrabDifficulty.Value} -> {__result}");
         }
 
         public static bool TryToDamagePrefix(HealthContainer __instance, ref float amount)
