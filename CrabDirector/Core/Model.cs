@@ -24,7 +24,8 @@ namespace SpellBrigadeMods.CrabDirector
     }
 
     /// <summary>The crabs the director spawns; values are the game's EnemyType values.</summary>
-    public enum Crab { Crabling = 0, FleshCrab = 1, ShieldCrab = 5, Crablodon = 7 }
+    /// <summary>Crab Land's crabs (EnemyType values), plus <see cref="Native"/>: "pick from the map's own wave mix" (resolved in game).</summary>
+    public enum Crab { Crabling = 0, FleshCrab = 1, ShieldCrab = 5, Crablodon = 7, Native = -1 }
 
     public enum Phase { BuildUp, Peak, Relax }
 
@@ -37,8 +38,10 @@ namespace SpellBrigadeMods.CrabDirector
         float WaveMultiplier { get; }
         int Count(Crab type);
         int ShieldsNear(V3 pos, float range);
-        /// <summary>CrabLand's boss fight is running (it spawns its own brood).</summary>
+        /// <summary>A boss fight is running (CrabLand's crab boss or a native boss): the director backs off.</summary>
         bool BossFight { get; }
+        /// <summary>Crab Land: run the crab rules (camper, shields, flank, heavy, crab mix). Other maps: pacing only, native mix.</summary>
+        bool CrabRules => true;
     }
 
     /// <summary>One SpawnGroupAsync call: ring around the target player, or around a point (a helper anchor in game).</summary>

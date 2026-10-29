@@ -129,6 +129,21 @@ namespace SpellBrigadeMods.CrabDirector
             var alive = Meter.Alive;
             if (SpawnDisabled || alive.Count == 0) return;
 
+            // Other maps: pacing only (meter, budget, ring), enemies from the map's own wave mix.
+            if (!w.CrabRules)
+            {
+                if (!relax && Ready("default", now) && Bank >= T.DefaultMinBank)
+                {
+                    var target = alive[_rng.Next(alive.Count)];
+                    if (Spawn(new SpawnRequest
+                        {
+                            Rule = "native", Type = Crab.Native, Count = Affordable(Crab.Native), Target = target.Id,
+                            MinR = T.DefaultMinR, MaxR = T.DefaultMaxR, MinD = 2f, MaxD = 4f,
+                        }, w)) Fire("default");
+                }
+                return;
+            }
+
             // Rule 2: campers get swarmed (the only rule allowed in relax; free there).
             var camper = alive.FirstOrDefault(p => p.Stationary);
             if (camper != null && Ready("camper", now))
@@ -284,6 +299,7 @@ namespace SpellBrigadeMods.CrabDirector
             Crab.FleshCrab => T.CostFleshCrab,
             Crab.ShieldCrab => T.CostShieldCrab,
             Crab.Crablodon => T.CostCrablodon,
+            Crab.Native => T.CostNative,
             _ => 1f,
         };
 

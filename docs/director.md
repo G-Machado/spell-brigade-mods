@@ -135,6 +135,22 @@ Called, never hooked: `EnemySpawner.SpawnGroupAsync` `0x287C750`, `EnemyPrefabRe
 
 Every RVA above was checked against the map's shared-RVA set (642 RVAs shared by ≥ 2 methods).
 
+## Every map (user, 2026-10-29)
+
+The director runs on every map; `OnlyInCrabLand` is gone.
+
+- **Crab Land** (CrabLand's `Active` flag): everything above — the crab rules (camper, shields, flank,
+  heavy) and the crab mix.
+- **Other maps**: pacing only — meter, phases, budget, ring, caps and the Relax throttle. One rule,
+  `native`: in BuildUp, once `Bank >= DefaultMinBank`, spend the bank at `CostNative` (1) per enemy. The types are a
+  weighted pick from `EnemySpawner.currentWave.EnemyProbabilitiesForSelectedWorld` (`EnemyProbability.Type` /
+  `Probability`, world variants already applied), with one `SpawnGroupAsync` per picked type; the spawn line carries `mix`.
+  The pick only reads the list. It never calls `GetRandomEnemyForWave`, so it can't re-enter the hooks.
+- **Boss back-off** (`IWorld.BossFight`): CrabLand's boss (`BossFight._bossHealth`) or a native boss, i.e.
+  `EndBossObjective.bossHealthContainer` set and not `IsHealthZero()`, polled once a second
+  (`CrabDirector/NativeBoss.cs`; logs `native boss: active=…` on each change, turns itself off on an exception).
+- Core: `IWorld.CrabRules` (default true, so the replay harness is unchanged) and `Crab.Native`.
+
 ## In-game toggle
 
 `CrabDirector/Overlay.cs`. Prefs in `[CrabDirector]`: `ToggleKey` (default `F8`), `PanelKey` (`F9`), `ShowPanel` (true).
@@ -147,7 +163,7 @@ Every RVA above was checked against the map's shared-RVA set (642 RVAs shared by
 - Each toggle writes a `toggle` jsonl line (raw: source, host, enabled, runningBefore, directorStarted,
   directorLive) while a run log is open, and a `toggle` line in the MelonLoader log.
 - Panel (IMGUI, top-left 220×112): On/Off button, phase, I, live / total director crabs, or the idle
-  reason (Enabled off / not host / no run / not Crab Land). If IMGUI throws, the panel turns off and the keys keep working.
+  reason (Enabled off / not host / no run), plus "crab rules" or "pacing". If IMGUI throws, the panel turns off and the keys keep working.
 - Keys go through the Input System (the game's), falling back to legacy `Input`; the log says which
   (`keys: reading through …`). Key names are `UnityEngine.InputSystem.Key` names (`F8`, `Backquote`…).
 - IMGUI doesn't consume Input System input: a click on the panel also reaches the game.

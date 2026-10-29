@@ -64,11 +64,25 @@ namespace SpellBrigadeMods.CrabDirector
             if (es == null || origin == null) { line["err"] = es == null ? "no spawner" : "no origin"; return false; }
             try
             {
-                var aw = es.SpawnGroupAsync(new EnemyGroupSpawnConfig((EnemyType)(int)r.Type, r.Count, origin,
-                    r.MinR, r.MaxR, r.MinD, r.MaxD, EnemySpawnRotation.TowardsClosestPlayer));
-                Census.ExpectDirector((EnemyType)(int)r.Type, r.Count, Time.time + r.MaxD + 3f);
-                line["awaitable"] = aw != null;
-                if (aw != null) Awaiting.Add(((int)line["id"], aw, Time.time, Time.time + r.MaxD + 10f));
+                var groups = new Dictionary<EnemyType, int>();
+                if (r.Type == Crab.Native)
+                {
+                    if (!PickNative(es, r.Count, groups)) { line["err"] = "no wave mix"; return false; }
+                    var mix = new Dictionary<string, int>();
+                    foreach (var kv in groups) mix[kv.Key.ToString()] = kv.Value;
+                    line["mix"] = mix;
+                }
+                else groups[(EnemyType)(int)r.Type] = r.Count;
+                var any = false;
+                foreach (var kv in groups)
+                {
+                    var aw = es.SpawnGroupAsync(new EnemyGroupSpawnConfig(kv.Key, kv.Value, origin,
+                        r.MinR, r.MaxR, r.MinD, r.MaxD, EnemySpawnRotation.TowardsClosestPlayer));
+                    Census.ExpectDirector(kv.Key, kv.Value, Time.time + r.MaxD + 3f);
+                    any |= aw != null;
+                    if (aw != null) Awaiting.Add(((int)line["id"], aw, Time.time, Time.time + r.MaxD + 10f));
+                }
+                line["awaitable"] = any;
                 _spawnFailures = 0;
                 return true;
             }
@@ -92,6 +106,36 @@ namespace SpellBrigadeMods.CrabDirector
                 Rule = "debug", Type = type, Count = count, Target = target,
                 MinR = 6f, MaxR = 10f, MinD = 0f, MaxD = 1f, Charge = false, IgnoreCaps = true,
             }, World);
+
+        /// <summary>
+        /// Weighted pick of <paramref name="count"/> enemies from the current wave's
+        /// <c>EnemyProbabilitiesForSelectedWorld</c> (world variants applied by the game). Reads the
+        /// list only; never calls GetRandomEnemyForWave, so it can't re-enter the throttle hooks.
+        /// </summary>
+        private static bool PickNative(EnemySpawner es, int count, Dictionary<EnemyType, int> groups)
+        {
+            var wave = es.currentWave;
+            var list = wave?.EnemyProbabilitiesForSelectedWorld;
+            if (list == null || list.Count == 0) return false;
+            var types = new List<(EnemyType t, float p)>();
+            float sum = 0f;
+            for (var i = 0; i < list.Count; i++)
+            {
+                var ep = list[i];
+                if (ep == null || ep.Probability <= 0f) continue;
+                types.Add((ep.Type, ep.Probability));
+                sum += ep.Probability;
+            }
+            if (sum <= 0f) return false;
+            for (var n = 0; n < count; n++)
+            {
+                var x = (float)Rng.NextDouble() * sum;
+                var pick = types[types.Count - 1].t;
+                foreach (var (t, p) in types) { if ((x -= p) < 0f) { pick = t; break; } }
+                groups[pick] = groups.TryGetValue(pick, out var c) ? c + 1 : 1;
+            }
+            return true;
+        }
 
         /// <summary>Director-owned enemy appeared (census). Crablodons are kept from the unseen-despawn.</summary>
         public static void OnDirectorEnemyStarted(Census.Entry e)
@@ -192,7 +236,8 @@ namespace SpellBrigadeMods.CrabDirector
         {
             public int Total => Census.Total;
             public int DirectorTotal => Census.DirectorTotal;
-            public bool BossFight => CrabDirectorMod.CrabLandBossFight();
+            public bool BossFight => CrabDirectorMod.CrabLandBossFight() || NativeBoss.Active;
+            public bool CrabRules => CrabDirectorMod.CrabLandActive();
             public int Count(Crab type) => Census.Count((EnemyType)(int)type);
 
             public int MaxConcurrent

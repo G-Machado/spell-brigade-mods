@@ -47,6 +47,7 @@ namespace SpellBrigadeMods.CrabDirector
         public float PointsPerSecond = 2f;
         public float BankMax = 30f;
         public float PerExtraPlayer = 0.5f;
+        public float CostNative = 1f;           // one enemy from the map's own wave mix (maps other than Crab Land)
         public float CostCrabling = 1f, CostFleshCrab = 3f, CostShieldCrab = 4f, CostCrablodon = 10f;
 
         // Rules

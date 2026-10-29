@@ -24,7 +24,7 @@ namespace SpellBrigadeMods.CrabDirector
     public sealed class CrabDirectorMod : MelonMod
     {
         internal static MelonLogger.Instance Log;
-        internal static MelonPreferences_Entry<bool> Enabled, OnlyInCrabLand, LogDecisions;
+        internal static MelonPreferences_Entry<bool> Enabled, LogDecisions;
 
         private static string Dir => Path.Combine(MelonEnvironment.UserDataDirectory, "CrabDirector");
         private static IntPtr _run;
@@ -34,7 +34,7 @@ namespace SpellBrigadeMods.CrabDirector
         private static bool _crabLandLooked;
         private static readonly HashSet<string> Reported = new HashSet<string>();
 
-        /// <summary>The director is live this frame: enabled, host, in a run, and in Crab Land unless that's off.</summary>
+        /// <summary>The director is live this frame: enabled, host, in a run (any map; crab rules only in Crab Land).</summary>
         internal static bool Running { get; private set; }
 
         /// <summary>Why the director is idle this frame (null while running), for the panel.</summary>
@@ -45,10 +45,9 @@ namespace SpellBrigadeMods.CrabDirector
             Log = LoggerInstance;
             var cat = MelonPreferences.CreateCategory("CrabDirector");
             Enabled = cat.CreateEntry("Enabled", false, description: "Run the Crab Director (host only)");
-            OnlyInCrabLand = cat.CreateEntry("OnlyInCrabLand", true, description: "Only direct while CrabLand's Crab Land is the selected map");
             LogDecisions = cat.CreateEntry("LogDecisions", true, description: "Echo phase changes and spawns to the MelonLoader log (the jsonl log is always written)");
             Overlay.Init(cat);
-            Log.Msg($"prefs Enabled={Enabled.Value} OnlyInCrabLand={OnlyInCrabLand.Value} LogDecisions={LogDecisions.Value} ShowPanel={Overlay.ShowPanel.Value} ToggleKey={Overlay.ToggleKey.Value} PanelKey={Overlay.PanelKey.Value}");
+            Log.Msg($"prefs Enabled={Enabled.Value} LogDecisions={LogDecisions.Value} ShowPanel={Overlay.ShowPanel.Value} ToggleKey={Overlay.ToggleKey.Value} PanelKey={Overlay.PanelKey.Value}");
 
             new Hooks(HarmonyInstance, LoggerInstance)
                 .Add<Enemy>("Start", postfix: P(typeof(Census), nameof(Census.StartPostfix)))
@@ -100,7 +99,6 @@ namespace SpellBrigadeMods.CrabDirector
             if (!Enabled.Value) return "Enabled off";
             if (!IsHostOrSolo()) return "not host";
             if (RunManager.Instance == null || EnemySpawner.Instance == null || GameplayPlayerManager.Instance == null) return "no run";
-            if (OnlyInCrabLand.Value && !CrabLandActive()) return "not Crab Land (OnlyInCrabLand)";
             return null;
         }
 
@@ -114,7 +112,7 @@ namespace SpellBrigadeMods.CrabDirector
                 ["ev"] = "run", ["t"] = Time.time, ["scene"] = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,
                 ["crabLand"] = CrabLandActive(), ["bus"] = Inputs.BusCaptures,
             });
-            Log.Msg($"run start: log {JsonLog.Path} bus={Inputs.BusCaptures} crabLand={CrabLandActive()}");
+            Log.Msg($"run start: log {JsonLog.Path} bus={Inputs.BusCaptures} crabLand={CrabLandActive()} (crab rules {(CrabLandActive() ? "on" : "off: pacing + native mix")})");
         }
 
         public override void OnGUI() => Overlay.Draw();

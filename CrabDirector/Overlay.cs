@@ -69,7 +69,7 @@ namespace SpellBrigadeMods.CrabDirector
                 string state;
                 if (!host) state = "director runs on the host";
                 else if (CrabDirectorMod.Running)
-                    state = $"{Director.Core.Phase}  I={Director.Core.IParty:F2}\ncrabs {Census.DirectorTotal}  spawned {Census.DirectorStarted}";
+                    state = $"{Director.Core.Phase}  I={Director.Core.IParty:F2}  {(CrabDirectorMod.CrabLandActive() ? "crab rules" : "pacing")}\nlive {Census.DirectorTotal}  spawned {Census.DirectorStarted}";
                 else state = $"idle: {CrabDirectorMod.IdleReasonText ?? "-"}";
                 GUI.Label(new Rect(Box.x + 10f, Box.y + 50f, Box.width - 20f, 40f), state);
                 GUI.Label(new Rect(Box.x + 10f, Box.y + 90f, Box.width - 20f, 20f), $"{ToggleKey.Value} on/off   {PanelKey.Value} hide");
