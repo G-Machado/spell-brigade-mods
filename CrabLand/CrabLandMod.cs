@@ -75,11 +75,11 @@ namespace SpellBrigadeMods.CrabLand
             RingRadius = cat.CreateEntry("RingRadius", 6f, description: "Spawn ring radius around the boss");
             ShellDamageMultiplier = cat.CreateEntry("ShellDamageMultiplier", 0.1f, description: "Damage the boss takes while the shell is up");
             EggCrabs = cat.CreateEntry("EggCrabs", true, description: "Crablodons lay petrified eggs that hatch into Crablings unless broken (host)");
-            EggLayInterval = cat.CreateEntry("EggLayInterval", 10f, description: "Seconds between eggs per Crablodon");
-            EggsPerLayer = cat.CreateEntry("EggsPerLayer", 3, description: "Most unhatched eggs per Crablodon");
-            EggMaxTotal = cat.CreateEntry("EggMaxTotal", 12, description: "Most unhatched eggs overall");
+            EggLayInterval = cat.CreateEntry("EggLayInterval", 5f, description: "Seconds between eggs per Crablodon");
+            EggsPerLayer = cat.CreateEntry("EggsPerLayer", 5, description: "Most unhatched eggs per Crablodon");
+            EggMaxTotal = cat.CreateEntry("EggMaxTotal", 24, description: "Most unhatched eggs overall");
             EggHatchSeconds = cat.CreateEntry("EggHatchSeconds", 8f, description: "Seconds until an unbroken egg hatches");
-            EggHatchCrablings = cat.CreateEntry("EggHatchCrablings", 4, description: "Crablings per hatched egg");
+            EggHatchCrablings = cat.CreateEntry("EggHatchCrablings", 7, description: "Crablings per hatched egg");
             RayfishShare = cat.CreateEntry("RayfishShare", 0.12f, description: "Share of wave spawns that are rayfish (native FlyingManta), 0-1 (host)");
             ExploderShare = cat.CreateEntry("ExploderShare", 0.15f, description: "Share of FleshCrabs that glow red and explode into Crablings on death, 0-1");
             ExploderBabies = cat.CreateEntry("ExploderBabies", 3, description: "Crablings per exploding crab (host)");

@@ -18,7 +18,7 @@ namespace SpellBrigadeMods.CrabLand
     /// </summary>
     internal static class Eggs
     {
-        private const float Tick = 0.5f, HatchRadius = 1.5f, LayOffset = 1.5f;
+        private const float Tick = 0.5f, HatchRadius = 1.5f, LayOffset = 1.5f, EggScale = 0.4f, EatRadius = 2f;
 
         private sealed class Egg
         {
@@ -37,7 +37,7 @@ namespace SpellBrigadeMods.CrabLand
 
         internal static void Reset()
         {
-            Live.Clear(); Broken.Clear(); NextLay.Clear();
+            Live.Clear(); Broken.Clear(); NextLay.Clear(); Tamed.Clear(); _eaten = 0;
             _prefab = null; _laid = _hatched = _broken = _lost = 0; _run++;
         }
 
@@ -48,7 +48,10 @@ namespace SpellBrigadeMods.CrabLand
             {
                 yield return new WaitForSeconds(Tick);
                 if (run != _run) yield break;
-                if (!CrabLandMod.Active || !CrabLandMod.EggCrabs.Value || !CrabLandMod.IsHostOrSolo()) continue;
+                if (!CrabLandMod.Active || !CrabLandMod.EggCrabs.Value) continue;
+                try { Mothers(); }
+                catch (Exception e) { CrabLandMod.Log.Error($"eggs: mothers failed: {e}"); }
+                if (!CrabLandMod.IsHostOrSolo()) continue;
                 var nm = NetworkManager.Singleton;
                 if (nm == null || !nm.IsListening) continue;
                 try { Step(); }
@@ -93,6 +96,45 @@ namespace SpellBrigadeMods.CrabLand
                 foreach (var k in new List<IntPtr>(NextLay.Keys)) if (!seen.Contains(k)) NextLay.Remove(k);
         }
 
+        private static readonly HashSet<IntPtr> Tamed = new();
+        private static int _eaten;
+
+        /// <summary>Mother crabs (non-boss Crablodons) do not chase: the host points their navigator at the closest XP orb and zeroes contact damage; every machine eats orbs within reach.</summary>
+        private static void Mothers()
+        {
+            var orbs = ExperienceOrb.AllOrbs;
+            foreach (var e in Object.FindObjectsOfType<Enemy>())
+            {
+                if (e.EnemyType != EnemyType.Crablodon) continue;
+                var hc = e.GetComponentInChildren<HealthContainer>(true);
+                if (hc != null && (hc.CurrentHealth <= 0f || BossFight.IsBoss(hc))) continue;
+                if (CrabLandMod.IsHostOrSolo() && Tamed.Add(e.Pointer)) Tame(e);
+                if (orbs == null) continue;
+                var p = e.transform.position;
+                for (var i = orbs.Count - 1; i >= 0; i--)
+                {
+                    var o = orbs[i];
+                    if (o == null || (o.transform.position - p).sqrMagnitude > EatRadius * EatRadius) continue;
+                    var xp = o.NumberOfExperience;
+                    Object.Destroy(o.gameObject);
+                    if (++_eaten <= 5 || _eaten % 25 == 0) CrabLandMod.Log.Msg($"eggs: mother ate orb #{_eaten} xp={xp} at {p}");
+                }
+            }
+        }
+
+        private static void Tame(Enemy e)
+        {
+            e.contactDamage = 0f;
+            var nav = e.GetComponentInChildren<EnemyNavigationController>(true)?.navigator?.TryCast<NavMeshEnemyNavigator>();
+            if (nav == null) { CrabLandMod.Log.Error($"eggs: mother {e.name} has no NavMeshEnemyNavigator; it keeps chasing"); return; }
+            var targeter = new ClosestExperienceOrbTargeter();
+            targeter.Setup(nav.GetTransform());
+            var asIface = targeter.Cast<IEnemyTargeter>();
+            nav.defaultTargeter = asIface;
+            nav.activeTargeter = asIface;
+            CrabLandMod.Log.Msg($"eggs: mother tamed {e.name} (xp-orb targeter, contact damage 0)");
+        }
+
         private static int CountFor(IntPtr layer)
         {
             var n = 0;
@@ -125,6 +167,7 @@ namespace SpellBrigadeMods.CrabLand
             var t = layer.transform;
             var pos = t.position - t.forward * LayOffset;
             var go = Object.Instantiate(prefab.gameObject, pos, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
+            go.transform.localScale *= EggScale;
             var resolver = Singleton<LifetimeScopeAccessor>.Instance?.GetContainer();
             if (resolver != null) ObjectResolverUnityExtensions.InjectGameObject(resolver, go);
             else CrabLandMod.Log.Warning("eggs: no LifetimeScopeAccessor container; egg not injected");

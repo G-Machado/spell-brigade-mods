@@ -162,3 +162,16 @@ despawns and `EggHatchCrablings` (4) Crablings spawn there (`SpawnGroupAsync`, r
   (PetrifiedEnemies, Herding, Clean).
 - Open: does `OnHealthDepleted` fire on an egg break, and does a native break release a FleshCrab;
   clients (a client-side break goes through `ReplaceWithRegularEnemyOnServerRpc`, not hooked); two-machine test.
+
+## Rayfish, exploding crab, mother crab (CrabLand `Spawns.cs` / `Exploders.cs` / `Eggs.cs`, 2026-10-30)
+
+- Rayfish: `EnemySpawner.GetRandomEnemyForWave` postfix swaps `RayfishShare` (0.12) of picks for the native
+  `FlyingManta` prefab (kept in `Spawns.Native` before the crab remap). Live: 3 picks, 2 alive in the census.
+- Exploding crab: `ExploderShare` (0.15) of FleshCrabs, picked from the network id on every machine; red pulsing
+  light, scale 1.15. Within 3.5 m of a player it draws the native `CircleDangerIndicator` (from the ExplodingTick
+  prefab, radius = its `explosionRadius`), 1.2 s later the native explosion prefab blows and the host spawns
+  `ExploderBabies` (3) Crablings and despawns it. A kill before that still blows via `HealthDepleted`. Live (death
+  path): 4 of 6 marked blew, 12 babies. Telegraph size and fuse: not yet seen live.
+- Mother crab (non-boss Crablodon): host swaps the navigator's `defaultTargeter`/`activeTargeter` for a
+  `ClosestExperienceOrbTargeter`, sets `contactDamage` 0; every machine destroys `ExperienceOrb`s within 2 m.
+  Lays every 5 s, up to 5 per crab / 24 total, 7 Crablings per egg; egg scale 0.4.

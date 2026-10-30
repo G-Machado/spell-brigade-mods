@@ -27,8 +27,9 @@ namespace SpellBrigadeMods.CrabLand
             public Il2CppSystem.Object Token;
         }
         private static readonly Dictionary<IntPtr, Chill> Chills = new();
+        private static int _burnLogged;
         private const int BurnTicks = 2;
-        private const float BurnTickDamage = 1f;
+        private const float BurnTickDamage = 1f, BurnTickSeconds = 0.25f;
         private static readonly Dictionary<IntPtr, int> Burns = new();   // FireEffectHandler -> ticks dealt
 
         internal static bool On
@@ -92,6 +93,8 @@ namespace SpellBrigadeMods.CrabLand
             var hc = __instance.healthContainer;
             if (hc == null || hc.TryCast<EnemyHealthContainer>() == null) return;
             ProbeBurn(__instance);
+            if (_burnLogged++ < 3) CrabLandMod.Log.Msg($"sea: native burn secondsBetweenTicks={__instance.secondsBetweenTicks} -> {BurnTickSeconds}");
+            __instance.secondsBetweenTicks = BurnTickSeconds;
             __instance.damagePerTick = BurnTickDamage;
             __instance.canCriticalHit = false;
             Burns[__instance.Pointer] = 0;
@@ -223,15 +226,15 @@ namespace SpellBrigadeMods.CrabLand
                     var ps = go.AddComponent<ParticleSystem>();
                     ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
                     var main = ps.main;
-                    main.loop = false; main.playOnAwake = false; main.maxParticles = 600;
+                    main.loop = false; main.playOnAwake = false; main.maxParticles = 1500;
                     main.simulationSpace = ParticleSystemSimulationSpace.World;
-                    main.startLifetime = Range(0.6f, 1.2f);
-                    main.startSize = Range(0.1f, 0.3f);
-                    main.startSpeed = Range(0.5f, 1.5f);
+                    main.startLifetime = Range(0.8f, 1.8f);
+                    main.startSize = Range(0.1f, 0.4f);
+                    main.startSpeed = Range(0.8f, 2.8f);
                     main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.75f, 0.95f, 1f, 0.85f));
                     main.gravityModifier = new ParticleSystem.MinMaxCurve(-0.3f);
                     var em = ps.emission; em.enabled = false;
-                    var shape = ps.shape; shape.enabled = true; shape.shapeType = ParticleSystemShapeType.Sphere; shape.radius = 0.4f;
+                    var shape = ps.shape; shape.enabled = true; shape.shapeType = ParticleSystemShapeType.Sphere; shape.radius = 0.6f;
                     var col = ps.colorOverLifetime; col.enabled = true;
                     var g = new Gradient();
                     g.SetKeys(new GradientColorKey[] { new(Color.white, 0f), new(Color.white, 1f) },
@@ -244,8 +247,8 @@ namespace SpellBrigadeMods.CrabLand
                     _burst = ps;
                     CrabLandMod.Log.Msg($"sea: fire bubbles emitter material={source}");
                 }
-                for (var i = 0; i < 10; i++)
-                    _burst.Emit(new ParticleSystem.EmitParams { position = at + UnityEngine.Random.insideUnitSphere * 0.4f }, 1);
+                for (var i = 0; i < 90; i++)
+                    _burst.Emit(new ParticleSystem.EmitParams { position = at + UnityEngine.Random.insideUnitSphere * 0.7f }, 1);
             }
             catch (Exception e) { CrabLandMod.Log.Warning($"sea: bubbles failed: {e.Message}"); }
         }

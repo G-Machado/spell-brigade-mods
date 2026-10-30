@@ -16,7 +16,7 @@ namespace SpellBrigadeMods.CrabLand
     /// </summary>
     internal static class Exploders
     {
-        private const float Tick = 0.5f, BabyRadius = 1.5f, Scale = 1.15f;
+        private const float Tick = 0.5f, BabyRadius = 1.5f, Scale = 1.15f, FuseDistance = 3.5f, Windup = 1.2f, FuseTick = 0.1f;
         private static readonly Color Glow = new Color(1f, 0.25f, 0.05f);
 
         private static readonly Dictionary<IntPtr, Transform> Live = new();   // EnemyHealthContainer -> enemy root
@@ -61,11 +61,11 @@ namespace SpellBrigadeMods.CrabLand
                 if (net == null || !net.IsSpawned || !Picked(net.NetworkObjectId)) continue;
                 var hc = e.GetComponentInChildren<EnemyHealthContainer>(true);
                 if (hc == null || hc.CurrentHealth <= 0f) continue;
-                Mark(e, hc, net.NetworkObjectId);
+                Mark(e, hc, net.NetworkObjectId, net);
             }
         }
 
-        private static void Mark(Enemy e, EnemyHealthContainer hc, ulong netId)
+        private static void Mark(Enemy e, EnemyHealthContainer hc, ulong netId, NetworkObject net)
         {
             Live[hc.Pointer] = e.transform;
             e.transform.localScale *= Scale;
@@ -78,8 +78,73 @@ namespace SpellBrigadeMods.CrabLand
             light.range = 4f;
             light.intensity = 0f;
             MelonCoroutines.Start(Pulse(light, _run));
+            MelonCoroutines.Start(Fuse(e, hc, net, _run));
             _marked++;
             CrabLandMod.Log.Msg($"exploders: marked #{_marked} netId={netId} hp={hc.CurrentHealth} at {e.transform.position}");
+        }
+
+        /// <summary>The native exploder's approach: the crab walks up to a player, its blast radius is drawn on the ground (the native CircleDangerIndicator), then it blows.</summary>
+        private static IEnumerator Fuse(Enemy e, EnemyHealthContainer hc, NetworkObject net, int run)
+        {
+            var key = hc.Pointer;
+            while (run == _run && e != null && !e.WasCollected && Live.ContainsKey(key))
+            {
+                yield return new WaitForSeconds(FuseTick);
+                if (run != _run || e == null || e.WasCollected || !Live.ContainsKey(key)) yield break;
+                if (!PlayerNear(e.transform.position, FuseDistance)) continue;
+                var radius = BlastRadius();
+                Telegraph(e.transform, radius);
+                yield return new WaitForSeconds(Windup);
+                if (run != _run || e == null || e.WasCollected || !Live.ContainsKey(key)) yield break;   // killed during the windup: the death path blew it
+                Live.Remove(key);
+                var pos = e.transform.position;
+                try
+                {
+                    Explode(pos);
+                    if (CrabLandMod.IsHostOrSolo())
+                    {
+                        SpawnBabies(pos);
+                        if (net != null && net.IsSpawned) net.Despawn(true);
+                    }
+                }
+                catch (Exception ex) { CrabLandMod.Log.Error($"exploders: fuse blast failed: {ex}"); }
+                yield break;
+            }
+        }
+
+        private static bool PlayerNear(Vector3 p, float dist)
+        {
+            foreach (var ps in Object.FindObjectsOfType<PlayerStats>())
+                if ((ps.transform.position - p).sqrMagnitude <= dist * dist) return true;
+            return false;
+        }
+
+        private static float BlastRadius()
+        {
+            var src = Spawns.NativePrefab(EnemyType.ExplodingTick)?.GetComponentInChildren<EnemyExplodeOnDeath>(true);
+            return src != null ? src.explosionRadius : 3f;
+        }
+
+        private static GameObject _indicator;
+
+        private static void Telegraph(Transform crab, float radius)
+        {
+            if (_indicator == null)
+            {
+                var native = Spawns.NativePrefab(EnemyType.ExplodingTick);
+                var found = native != null ? native.GetComponentInChildren<CircleDangerIndicator>(true) : null;
+                if (found == null)
+                {
+                    var ex = native?.GetComponentInChildren<EnemyExplodeOnDeath>(true)?.explosionPrefab;
+                    found = ex != null ? ex.GetComponentInChildren<CircleDangerIndicator>(true) : null;
+                }
+                if (found == null) { CrabLandMod.Log.Error("exploders: no native CircleDangerIndicator on the ExplodingTick prefab or its explosion; no ground telegraph"); return; }
+                _indicator = found.gameObject;
+                CrabLandMod.Log.Msg($"exploders: telegraph source {_indicator.name} scale={_indicator.transform.lossyScale} radius={radius}");
+            }
+            var go = Object.Instantiate(_indicator, crab.position + Vector3.up * 0.05f, Quaternion.identity);
+            go.SetActive(true);
+            go.GetComponent<CircleDangerIndicator>().Trigger(Windup, radius);
         }
 
         private static IEnumerator Pulse(Light light, int run)
