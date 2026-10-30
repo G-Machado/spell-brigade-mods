@@ -22,6 +22,8 @@ namespace SpellBrigadeMods.CrabLand
         private static IntPtr _bossHealth;
         private static int _fight;   // bumps per boss so a stale coroutine stops
 
+        internal static bool IsBoss(HealthContainer hc) => hc != null && _bossHealth != IntPtr.Zero && hc.Pointer == _bossHealth;
+
         internal static bool ShellOn { get; private set; }
         internal static int ShieldsLeft { get; private set; }
         private const int HitsLogged = 10;

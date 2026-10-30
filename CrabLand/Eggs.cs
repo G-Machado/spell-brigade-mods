@@ -79,8 +79,9 @@ namespace SpellBrigadeMods.CrabLand
             foreach (var e in Object.FindObjectsOfType<Enemy>())
             {
                 if (e.EnemyType != EnemyType.Crablodon) continue;
-                var hc = e.GetComponent<HealthContainer>();
+                var hc = e.GetComponentInChildren<HealthContainer>(true);
                 if (hc != null && hc.CurrentHealth <= 0f) continue;
+                if (BossFight.IsBoss(hc)) continue;   // the boss never lays
                 seen.Add(e.Pointer);
                 if (!NextLay.TryGetValue(e.Pointer, out var next)) { NextLay[e.Pointer] = now + interval; continue; }
                 if (now < next) continue;
