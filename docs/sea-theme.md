@@ -39,7 +39,34 @@ run scene, so leaving the scene restores the native look. Logs `sea: applied ...
 - `ParticleSystem.MinMaxCurve(float, float)` and `MinMaxGradient(Gradient)` constructors are missing in
   the interop; set `mode`/`constantMin`/`constantMax`/`gradient` instead.
 
+## Elements (CrabLand `ThemeElements.cs`, 2026-10-29)
+
+Gameplay change, gated on Crab Land active + `SeaTheme` + `SeaElements` + the run scene; normal maps keep native behaviour.
+Hooks: `HealthContainer.TryToDamage` (the existing CrabLand prefix calls `ThemeElements.OnTryToDamage` first),
+`FireEffectHandler.Burn` (prefix, skipped), `IceEffectHandler.Chill` (postfix). Only hits with a `PlayerDamageInfo` are touched.
+
+| pref | default | effect |
+|---|---|---|
+| `SeaElements` | true | switch for the three below |
+| `SeaFreezeStacks` | 6 | `Chill` calls on one enemy within `SeaFreezeWindow` that freeze it |
+| `SeaFreezeWindow` | 4 | seconds |
+| `SeaFreezeSeconds` | 3 | freeze length; ends early on death, despawn or zero hp |
+
+- Fire (`Fire`, `FireDouble`): hit skipped (no damage), bubble burst at the target (world-space emitter, `Emit`), every burn
+  blocked. Combos keep their native damage; `FireLightning` counts as lightning.
+- Lightning (any lightning element): `hitIsCritical` forced; a non-crit's amount is scaled by `CriticalDamage / 100`. Live:
+  `CriticalChance` is a percent (26) and `CriticalDamage` a percent factor that the caller has already applied on native crits
+  (206.25 -> 478.5 at 232). TryToDamage runs on the host (`IsServer=True`).
+- Freeze: native `FreezeStateHandler.AddFreezeStack/RemoveFreezeStack` with a token object (enemy stops in place). Overlay is the dark
+  element's own: the `CorruptionVisualizer.renderers` get `DarkCorruption=1` and `_DarkGlow` tinted (0.35, 0.75, 1) through a
+  MaterialPropertyBlock (enemy shader `Shader Graphs/HuntTargets`; colours `_EdgeColor,_EmmisionColor,_HitColor,_DarkGlow`),
+  property tint, no material swap; both restored on unfreeze.
+- Live self-test (synthetic `PlayerDamageInfo` through the native methods, host, 2026-10-29): fire hp 254.1 -> 254.1;
+  lightning 100 -> 220 hp (x2.00 crit x1.1 enemy multiplier); freeze IsFrozen 3 s, position held, then moves, overlay on/off.
+
 ## Open
+- Elements: a real fire-infused spell and a real lightning spell in play (only synthetic hits so far); unfreeze on death live;
+  co-op (does `Chill` / the freeze run on the host only, and does the overlay show on clients).
 - Polish pass (user 2026-10-29: "the graphics need more polish"; kelp "looks better (still raw modeling)"): kelp/coral look with the white base
   texture, a god-ray design that suits a top-down camera, coral shapes.
 - Two-machine test (clients apply the look themselves; the props layout is seeded, so it should match).

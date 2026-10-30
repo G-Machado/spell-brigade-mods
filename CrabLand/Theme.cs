@@ -157,7 +157,7 @@ namespace SpellBrigadeMods.CrabLand
         }
 
         // ---------- c. bubbles and sea snow ----------
-        private static Material ParticleMaterial(Texture2D tex, out string source)
+        internal static Material ParticleMaterial(Texture2D tex, out string source)
         {
             Material template = null;
             foreach (var r in Resources.FindObjectsOfTypeAll<ParticleSystemRenderer>())
@@ -188,7 +188,7 @@ namespace SpellBrigadeMods.CrabLand
             return mat;
         }
 
-        private static Texture2D Disc(string name, bool ring)
+        internal static Texture2D Disc(string name, bool ring)
         {
             const int n = 64;
             var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = name };
