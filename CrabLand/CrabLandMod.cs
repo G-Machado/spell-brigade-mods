@@ -23,7 +23,7 @@ namespace SpellBrigadeMods.CrabLand
 
         internal static MelonLogger.Instance Log;
 
-        internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward, BossMechanics, ShortRun, HideAchievementPopups, EggCrabs, SeaTheme, SeaTint, SeaCaustics, SeaParticles, SeaGrass, SeaGodRays, SeaDepth, SeaElements;
+        internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward, BossMechanics, ShortRun, HideAchievementPopups, EggCrabs, SeaKelp, SeaFish, SeaTheme, SeaTint, SeaCaustics, SeaParticles, SeaGrass, SeaGodRays, SeaDepth, SeaElements;
         internal static MelonPreferences_Entry<float> RayfishShare, ExploderShare, BossScale, BossHealthMultiplier, DebugBossHealthMultiplier, ShellThreshold, RingRadius, ShellDamageMultiplier, ShellMaxSeconds, ObjectiveInterval, CrabDifficulty, EggLayInterval, EggHatchSeconds, SeaThemeABSeconds, SeaFreezeWindow, SeaFreezeSeconds;
         internal static MelonPreferences_Entry<int> ExploderBabies, BroodCrablings, BroodFleshCrabs, ShellShieldCrabs, EggsPerLayer, EggMaxTotal, EggHatchCrablings, SeaPropClusters, SeaFreezeStacks;
         internal static MelonPreferences_Entry<string> BroodThresholds, ObjectivePool, SeaScreenshotDir;
@@ -83,6 +83,8 @@ namespace SpellBrigadeMods.CrabLand
             RayfishShare = cat.CreateEntry("RayfishShare", 0.12f, description: "Share of wave spawns that are rayfish (native FlyingManta), 0-1 (host)");
             ExploderShare = cat.CreateEntry("ExploderShare", 0.15f, description: "Share of FleshCrabs that glow red and explode into Crablings on death, 0-1");
             ExploderBabies = cat.CreateEntry("ExploderBabies", 3, description: "Crablings per exploding crab (host)");
+            SeaKelp = cat.CreateEntry("SeaKelp", true, description: "Sea: hide the trees (colliders stay) and grow tall swaying kelp in their place");
+            SeaFish = cat.CreateEntry("SeaFish", true, description: "Sea: small schools of swimming low-poly fish (visual only)");
             SeaTheme = cat.CreateEntry("SeaTheme", true, description: "Under-the-sea look in Crab Land (local, every machine); master switch for the Sea* effects");
             SeaTint = cat.CreateEntry("SeaTint", true, description: "Sea: teal fog, sea-tinted light, colour grade, vignette, bloom");
             SeaCaustics = cat.CreateEntry("SeaCaustics", true, description: "Sea: animated caustics on the sun (light cookie)");
@@ -105,7 +107,7 @@ namespace SpellBrigadeMods.CrabLand
                     $"ShellThreshold={ShellThreshold.Value} ShellShieldCrabs={ShellShieldCrabs.Value} RingRadius={RingRadius.Value} ShellDamageMultiplier={ShellDamageMultiplier.Value} " +
                     $"EggCrabs={EggCrabs.Value} EggLayInterval={EggLayInterval.Value} EggsPerLayer={EggsPerLayer.Value} EggMaxTotal={EggMaxTotal.Value} EggHatchSeconds={EggHatchSeconds.Value} EggHatchCrablings={EggHatchCrablings.Value} " +
                     $"RayfishShare={RayfishShare.Value} ExploderShare={ExploderShare.Value} ExploderBabies={ExploderBabies.Value} " +
-                    $"SeaTheme={SeaTheme.Value} SeaTint={SeaTint.Value} SeaCaustics={SeaCaustics.Value} SeaParticles={SeaParticles.Value} SeaGrass={SeaGrass.Value} SeaGodRays={SeaGodRays.Value} SeaDepth={SeaDepth.Value} SeaElements={SeaElements.Value} SeaFreezeStacks={SeaFreezeStacks.Value} SeaFreezeWindow={SeaFreezeWindow.Value} SeaFreezeSeconds={SeaFreezeSeconds.Value} SeaThemeABSeconds={SeaThemeABSeconds.Value}");
+                    $"SeaKelp={SeaKelp.Value} SeaFish={SeaFish.Value} SeaTheme={SeaTheme.Value} SeaTint={SeaTint.Value} SeaCaustics={SeaCaustics.Value} SeaParticles={SeaParticles.Value} SeaGrass={SeaGrass.Value} SeaGodRays={SeaGodRays.Value} SeaDepth={SeaDepth.Value} SeaElements={SeaElements.Value} SeaFreezeStacks={SeaFreezeStacks.Value} SeaFreezeWindow={SeaFreezeWindow.Value} SeaFreezeSeconds={SeaFreezeSeconds.Value} SeaThemeABSeconds={SeaThemeABSeconds.Value}");
 
             var hooks = new Hooks(HarmonyInstance, LoggerInstance)
                 .Add<WorldsPanel>("InitializeButtons", postfix: P(typeof(Menu), nameof(Menu.InitializeButtonsPostfix)))

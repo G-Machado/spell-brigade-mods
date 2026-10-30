@@ -70,3 +70,9 @@ Hooks: `HealthContainer.TryToDamage` (the existing CrabLand prefix calls `ThemeE
 - Polish pass (user 2026-10-29: "the graphics need more polish"; kelp "looks better (still raw modeling)"): kelp/coral look with the white base
   texture, a god-ray design that suits a top-down camera, coral shapes.
 - Two-machine test (clients apply the look themselves; the props layout is seeded, so it should match).
+
+## Kelp for trees, fish (2026-10-30, `ThemeLife.cs`, not yet seen live)
+- `SeaKelp`: every `MeshRenderer` named *tree* is disabled (colliders untouched; re-enabled when the sea look is toggled off),
+  and up to 150 tree spots (2.5 m cells) get 3 tall (5–9 m) swaying kelp ribbons. Logs `sea: kelp replaced treeRenderers=N`; N=0 is an error.
+- `SeaFish`: 7 schools of 5–9 low-poly fish (diamond body, wiggling tail), drifting on curving paths, wrapped within 45 m of the
+  camera focus, kept ≥0.6 m above the terrain, no colliders. Logs `sea: fish schools=… fish=…`.

@@ -51,7 +51,7 @@ namespace SpellBrigadeMods.CrabLand
             var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             if (!CrabLandMod.SeaTheme.Value || _scene == scene.handle) return;
             _scene = scene.handle; _run++;
-            Beams.Clear(); Swaying.Clear(); Retinted.Clear(); _depth = 0f; _bossSeen = false;
+            SeaLife.Reset(); Beams.Clear(); Swaying.Clear(); Retinted.Clear(); _depth = 0f; _bossSeen = false;
             _sun = null; _sunData = null; _nativeCookie = _seaCookie = null; _nativeSunIntensity = 0f;
             _bubbles = _snow = _rays = null;
             _root = new GameObject("CrabLandSea");
@@ -66,6 +66,8 @@ namespace SpellBrigadeMods.CrabLand
             Try("caustics", On(CrabLandMod.SeaCaustics), Caustics);
             Try("particles", On(CrabLandMod.SeaParticles), Particles);
             Try("seagrass", On(CrabLandMod.SeaGrass), Seagrass);
+            Try("kelp", On(CrabLandMod.SeaKelp), () => SeaLife.Kelp(_root.transform, (tr, ph) => Swaying.Add(new Sway { T = tr, Base = tr.localRotation, Phase = ph })));
+            Try("fish", On(CrabLandMod.SeaFish), () => SeaLife.Fish(_root.transform, Camera.main != null ? Focus(Camera.main) : Vector3.zero));
             Try("godrays", On(CrabLandMod.SeaGodRays), GodRays);
             _on = true;
             CrabLandMod.Log.Msg($"sea: applied scene={scene.name} {string.Join(" ", made)}");
@@ -445,6 +447,7 @@ namespace SpellBrigadeMods.CrabLand
             }
             if (_sunData != null && _on)
                 _sunData.lightCookieOffset = new Vector2(t * 0.35f + 0.8f * Mathf.Sin(t * 0.4f), t * 0.22f + 0.8f * Mathf.Cos(t * 0.33f));
+            if (cam != null) SeaLife.Animate(t, Time.deltaTime, Focus(cam));
             for (var i = 0; i < Swaying.Count; i++)
             {
                 var s = Swaying[i];
@@ -478,6 +481,7 @@ namespace SpellBrigadeMods.CrabLand
         private static void SetOn(bool on)
         {
             _on = on;
+            SeaLife.SetOn(on);
             if (_root != null) _root.SetActive(on);
             if (_sun != null)
             {

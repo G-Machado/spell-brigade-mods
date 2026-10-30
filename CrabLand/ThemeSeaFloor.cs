@@ -13,7 +13,7 @@ namespace SpellBrigadeMods.CrabLand
     /// </summary>
     internal static class SeaFloor
     {
-        private static readonly Color[] KelpColors = { new(0.16f, 0.5f, 0.38f), new(0.1f, 0.38f, 0.22f), new(0.42f, 0.5f, 0.16f) };
+        internal static readonly Color[] KelpColors = { new(0.16f, 0.5f, 0.38f), new(0.1f, 0.38f, 0.22f), new(0.42f, 0.5f, 0.16f) };
         private static readonly Color[] CoralColors = { new(1f, 0.42f, 0.38f), new(0.95f, 0.55f, 0.85f), new(1f, 0.72f, 0.3f), new(0.45f, 0.65f, 1f) };
         private static readonly Color RockColor = new(0.32f, 0.36f, 0.38f);
         private const float Radius = 60f;
@@ -106,7 +106,7 @@ namespace SpellBrigadeMods.CrabLand
         }
 
         /// <summary>A copy of a game material tinted toward <paramref name="c"/>; its texture is kept.</summary>
-        private static Material Tinted(Material template, Color c, float amount = 0.75f, bool plain = false)
+        internal static Material Tinted(Material template, Color c, float amount = 0.75f, bool plain = false)
         {
             var m = new Material(template);
             if (plain && m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", Texture2D.whiteTexture);
@@ -136,7 +136,7 @@ namespace SpellBrigadeMods.CrabLand
         }
 
         /// <summary>A tapered, bent vertical strip (kelp blade), pivot at the base, both faces.</summary>
-        private static Mesh Ribbon()
+        internal static Mesh Ribbon()
         {
             const int seg = 6;
             var v = new Vector3[(seg + 1) * 2];
