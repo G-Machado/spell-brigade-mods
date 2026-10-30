@@ -9,7 +9,7 @@ using UnityEngine;
 namespace SpellBrigadeMods.CrabLand
 {
     /// <summary>
-    /// Sea elements (Crab Land with the sea theme only): fire hits make bubbles and deal no damage, no burns;
+    /// Sea elements (Crab Land with the sea theme only): fire hits deal native damage, then the burn ticks for 1 twice and ends in a bubble burst;
     /// lightning hits always crit (water conducts); enemies chilled too often freeze solid for a few seconds
     /// (native FreezeStateHandler) under the dark-corruption overlay tinted blue.
     /// </summary>
@@ -27,6 +27,9 @@ namespace SpellBrigadeMods.CrabLand
             public Il2CppSystem.Object Token;
         }
         private static readonly Dictionary<IntPtr, Chill> Chills = new();
+        private const int BurnTicks = 2;
+        private const float BurnTickDamage = 1f;
+        private static readonly Dictionary<IntPtr, int> Burns = new();   // FireEffectHandler -> ticks dealt
 
         internal static bool On
         {
@@ -40,7 +43,8 @@ namespace SpellBrigadeMods.CrabLand
 
         internal static void AddHooks(Hooks h)
         {
-            h.Add<FireEffectHandler>("Burn", prefix: P(nameof(BurnPrefix)))
+            h.Add<FireEffectHandler>("Burn", postfix: P(nameof(BurnPostfix)))
+             .Add<FireEffectHandler>("HandleDamageTick", prefix: P(nameof(BurnTickPrefix)), postfix: P(nameof(BurnTickPostfix)))
              .Add<IceEffectHandler>("Chill", postfix: P(nameof(ChillPostfix)));
             ProbeHooks(h);
         }
@@ -50,6 +54,7 @@ namespace SpellBrigadeMods.CrabLand
         internal static void Reset()
         {
             Chills.Clear();
+            Burns.Clear();
             _burst = null;
             _gateFrame = -1;
             ProbeReset();
@@ -68,11 +73,6 @@ namespace SpellBrigadeMods.CrabLand
             ProbeHit(target, amount, damageInfo, player, hitIsCritical);
             if (player == null) return true;
             var e = damageInfo.Element;
-            if (IsFire(e))
-            {
-                Bubbles(target.transform.position + Vector3.up);
-                return false;
-            }
             if (IsLightning(e) && !hitIsCritical)
             {
                 hitIsCritical = true;
@@ -85,11 +85,37 @@ namespace SpellBrigadeMods.CrabLand
         // (amount 206.25 -> 478.5 at CriticalDamage 232). A crit is never weaker than a hit.
         private static float CritMultiplier(float critDamage) => Mathf.Max(1f, critDamage / 100f);
 
-        public static bool BurnPrefix()
+        /// <summary>Hook: FireEffectHandler.Burn postfix. The burn keeps its native timing but ticks for 1, never crits.</summary>
+        public static void BurnPostfix(FireEffectHandler __instance)
         {
-            if (!On) return true;
-            ProbeBurn();
-            return false;
+            if (!On || __instance == null) return;
+            var hc = __instance.healthContainer;
+            if (hc == null || hc.TryCast<EnemyHealthContainer>() == null) return;
+            ProbeBurn(__instance);
+            __instance.damagePerTick = BurnTickDamage;
+            __instance.canCriticalHit = false;
+            Burns[__instance.Pointer] = 0;
+        }
+
+        /// <summary>Hook: FireEffectHandler.HandleDamageTick prefix. No ticks past the second (until the next Burn).</summary>
+        public static bool BurnTickPrefix(FireEffectHandler __instance)
+        {
+            if (!On || __instance == null || !Burns.TryGetValue(__instance.Pointer, out var n)) return true;
+            __instance.damagePerTick = BurnTickDamage;
+            return n < BurnTicks;
+        }
+
+        /// <summary>Hook: FireEffectHandler.HandleDamageTick postfix. After the second tick the burn bursts into bubbles and ends.</summary>
+        public static void BurnTickPostfix(FireEffectHandler __instance)
+        {
+            if (!On || __instance == null || !Burns.TryGetValue(__instance.Pointer, out var n)) return;
+            Burns[__instance.Pointer] = ++n;
+            ProbeBurnTick(__instance, n);
+            if (n < BurnTicks) return;
+            Burns.Remove(__instance.Pointer);
+            var hc = __instance.healthContainer;
+            if (hc != null) Bubbles(hc.transform.position + Vector3.up);
+            __instance.StopBurning();
         }
 
         public static void ChillPostfix(IceEffectHandler __instance, HealthContainer targetHealthContainer)
@@ -229,7 +255,8 @@ namespace SpellBrigadeMods.CrabLand
 
         static partial void ProbeHooks(Hooks h);
         static partial void ProbeReset();
-        static partial void ProbeBurn();
+        static partial void ProbeBurn(FireEffectHandler h);
+        static partial void ProbeBurnTick(FireEffectHandler h, int n);
         static partial void ProbeHit(HealthContainer target, float amount, DamageInfo damageInfo, PlayerDamageInfo player, bool hitIsCritical);
     }
 }

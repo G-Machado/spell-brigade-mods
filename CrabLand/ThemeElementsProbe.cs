@@ -37,7 +37,15 @@ namespace SpellBrigadeMods.CrabLand
 
         private static int _probeBurns, _probeRun;
 
-        static partial void ProbeBurn() => _probeBurns++;
+        static partial void ProbeBurn(FireEffectHandler h)
+        {
+            _probeBurns++;
+            CrabLandMod.Log.Msg($"probe: burn native damagePerTick={h.damagePerTick} numberOfTicks={h.numberOfTicks} " +
+                                $"secondsBetweenTicks={h.secondsBetweenTicks} canCrit={h.canCriticalHit} hp={h.healthContainer?.CurrentHealth}");
+        }
+
+        static partial void ProbeBurnTick(FireEffectHandler h, int n) =>
+            CrabLandMod.Log.Msg($"probe: burn tick {n} t={Time.time:F2} hp={h.healthContainer?.CurrentHealth} numberOfTicks={h.numberOfTicks}");
 
         private static string TriggerPath => Path.Combine(MelonLoader.Utils.MelonEnvironment.GameRootDirectory, "UserData", "sea-elements-selftest.txt");
 
@@ -79,7 +87,14 @@ namespace SpellBrigadeMods.CrabLand
             a.TryToDamage(100f, Info(ElementType.Fire, 100f), false);
             a.TryToDamage(100f, Info(ElementType.FireDouble, 100f), false);
             var feh = a.GetComponentInParent<FireEffectHandler>() ?? a.GetComponentInChildren<FireEffectHandler>();
-            P2($"fire target={a.gameObject.name} hp {h0} -> {a.CurrentHealth} burnsBlocked={_probeBurns - burns0} fireHandler={(feh != null)}");
+            P2($"fire target={a.gameObject.name} hp {h0} -> {a.CurrentHealth} (expect -200 x resist) fireHandler={(feh != null)}");
+            if (feh != null)
+            {
+                var hb = a.CurrentHealth;
+                feh.Burn(new FireEffectConfig(50f, 6, 0.5f, Info(ElementType.Fire, 50f), true, default));
+                yield return new WaitForSeconds(4.5f);
+                P2($"burn target={a.gameObject.name} hp {hb} -> {a.CurrentHealth} (expect -2: two ticks of 1, then bubbles) burns={_probeBurns - burns0}");
+            }
 
             // b: lightning (popup row follows with DisplayDamage and IsCritical)
             var b = t[1]; var h1 = b.CurrentHealth;
