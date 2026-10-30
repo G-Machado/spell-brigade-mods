@@ -40,6 +40,12 @@ namespace SpellBrigadeMods.CrabLand
 
         public static NetworkObject CrablodonPrefab { get; private set; }
 
+        private static readonly Dictionary<EnemyType, NetworkObject> Native = new Dictionary<EnemyType, NetworkObject>();
+        private static int _rays;
+
+        /// <summary>The prefab the game had for this type before the crab remap.</summary>
+        public static NetworkObject NativePrefab(EnemyType t) => Native.TryGetValue(t, out var p) ? p : null;
+
         private static readonly Dictionary<string, int> Counts = new Dictionary<string, int>();
         private static float _lastSummary;
 
@@ -54,6 +60,7 @@ namespace SpellBrigadeMods.CrabLand
             int swapped = 0, missing = 0;
             foreach (var kv in Role)
             {
+                if (dict.ContainsKey(kv.Key) && !Native.ContainsKey(kv.Key) && dict[kv.Key] != null) Native[kv.Key] = dict[kv.Key];
                 if (!dict.ContainsKey(kv.Key)) continue;
                 if (!dict.ContainsKey(kv.Value) || dict[kv.Value] == null)
                 {
@@ -110,6 +117,18 @@ namespace SpellBrigadeMods.CrabLand
         }
 
         public static void ResetCounts() { Counts.Clear(); _lastSummary = Time.realtimeSinceStartup; }
+
+        /// <summary>Hook: EnemySpawner.GetRandomEnemyForWave postfix. Rayfish: a share of wave picks become the native FlyingManta.</summary>
+        public static void RandomEnemyPostfix(ref NetworkObject __result)
+        {
+            if (!CrabLandMod.Active || __result == null) return;
+            var share = CrabLandMod.RayfishShare.Value;
+            if (share <= 0f || UnityEngine.Random.value >= share) return;
+            var manta = NativePrefab(EnemyType.FlyingManta);
+            if (manta == null) { if (_rays++ == 0) CrabLandMod.Log.Error("spawns: no native FlyingManta prefab; no rayfish"); return; }
+            __result = manta;
+            if (++_rays <= 3) CrabLandMod.Log.Msg($"spawns: rayfish pick #{_rays} prefab={manta.name}");
+        }
 
         public static bool StartEventPrefix(EnemyEvent enemyEvent)
         {

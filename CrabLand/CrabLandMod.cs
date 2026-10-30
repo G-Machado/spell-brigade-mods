@@ -24,8 +24,8 @@ namespace SpellBrigadeMods.CrabLand
         internal static MelonLogger.Instance Log;
 
         internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward, BossMechanics, ShortRun, HideAchievementPopups, EggCrabs, SeaTheme, SeaTint, SeaCaustics, SeaParticles, SeaGrass, SeaGodRays, SeaDepth, SeaElements;
-        internal static MelonPreferences_Entry<float> BossScale, BossHealthMultiplier, DebugBossHealthMultiplier, ShellThreshold, RingRadius, ShellDamageMultiplier, ShellMaxSeconds, ObjectiveInterval, CrabDifficulty, EggLayInterval, EggHatchSeconds, SeaThemeABSeconds, SeaFreezeWindow, SeaFreezeSeconds;
-        internal static MelonPreferences_Entry<int> BroodCrablings, BroodFleshCrabs, ShellShieldCrabs, EggsPerLayer, EggMaxTotal, EggHatchCrablings, SeaPropClusters, SeaFreezeStacks;
+        internal static MelonPreferences_Entry<float> RayfishShare, ExploderShare, BossScale, BossHealthMultiplier, DebugBossHealthMultiplier, ShellThreshold, RingRadius, ShellDamageMultiplier, ShellMaxSeconds, ObjectiveInterval, CrabDifficulty, EggLayInterval, EggHatchSeconds, SeaThemeABSeconds, SeaFreezeWindow, SeaFreezeSeconds;
+        internal static MelonPreferences_Entry<int> ExploderBabies, BroodCrablings, BroodFleshCrabs, ShellShieldCrabs, EggsPerLayer, EggMaxTotal, EggHatchCrablings, SeaPropClusters, SeaFreezeStacks;
         internal static MelonPreferences_Entry<string> BroodThresholds, ObjectivePool, SeaScreenshotDir;
 
         private static bool _active;
@@ -80,6 +80,9 @@ namespace SpellBrigadeMods.CrabLand
             EggMaxTotal = cat.CreateEntry("EggMaxTotal", 12, description: "Most unhatched eggs overall");
             EggHatchSeconds = cat.CreateEntry("EggHatchSeconds", 8f, description: "Seconds until an unbroken egg hatches");
             EggHatchCrablings = cat.CreateEntry("EggHatchCrablings", 4, description: "Crablings per hatched egg");
+            RayfishShare = cat.CreateEntry("RayfishShare", 0.12f, description: "Share of wave spawns that are rayfish (native FlyingManta), 0-1 (host)");
+            ExploderShare = cat.CreateEntry("ExploderShare", 0.15f, description: "Share of FleshCrabs that glow red and explode into Crablings on death, 0-1");
+            ExploderBabies = cat.CreateEntry("ExploderBabies", 3, description: "Crablings per exploding crab (host)");
             SeaTheme = cat.CreateEntry("SeaTheme", true, description: "Under-the-sea look in Crab Land (local, every machine); master switch for the Sea* effects");
             SeaTint = cat.CreateEntry("SeaTint", true, description: "Sea: teal fog, sea-tinted light, colour grade, vignette, bloom");
             SeaCaustics = cat.CreateEntry("SeaCaustics", true, description: "Sea: animated caustics on the sun (light cookie)");
@@ -101,6 +104,7 @@ namespace SpellBrigadeMods.CrabLand
                     $"HideAchievementPopups={HideAchievementPopups.Value} ObjectivePool={ObjectivePool.Value} ObjectiveInterval={ObjectiveInterval.Value} CrabDifficulty={CrabDifficulty.Value} ShortRun={ShortRun.Value} BossMechanics={BossMechanics.Value} ShellMaxSeconds={ShellMaxSeconds.Value} BroodThresholds={BroodThresholds.Value} BroodCrablings={BroodCrablings.Value} BroodFleshCrabs={BroodFleshCrabs.Value} " +
                     $"ShellThreshold={ShellThreshold.Value} ShellShieldCrabs={ShellShieldCrabs.Value} RingRadius={RingRadius.Value} ShellDamageMultiplier={ShellDamageMultiplier.Value} " +
                     $"EggCrabs={EggCrabs.Value} EggLayInterval={EggLayInterval.Value} EggsPerLayer={EggsPerLayer.Value} EggMaxTotal={EggMaxTotal.Value} EggHatchSeconds={EggHatchSeconds.Value} EggHatchCrablings={EggHatchCrablings.Value} " +
+                    $"RayfishShare={RayfishShare.Value} ExploderShare={ExploderShare.Value} ExploderBabies={ExploderBabies.Value} " +
                     $"SeaTheme={SeaTheme.Value} SeaTint={SeaTint.Value} SeaCaustics={SeaCaustics.Value} SeaParticles={SeaParticles.Value} SeaGrass={SeaGrass.Value} SeaGodRays={SeaGodRays.Value} SeaDepth={SeaDepth.Value} SeaElements={SeaElements.Value} SeaFreezeStacks={SeaFreezeStacks.Value} SeaFreezeWindow={SeaFreezeWindow.Value} SeaFreezeSeconds={SeaFreezeSeconds.Value} SeaThemeABSeconds={SeaThemeABSeconds.Value}");
 
             var hooks = new Hooks(HarmonyInstance, LoggerInstance)
@@ -108,6 +112,8 @@ namespace SpellBrigadeMods.CrabLand
                 .Add<WorldsPanel>("OnWorldButtonClicked", prefix: P(typeof(Menu), nameof(Menu.OnWorldButtonClickedPrefix)))
                 .Add<MainMenuManager>("OnNetworkSpawn", postfix: P(typeof(CrabLandMod), nameof(MainMenuSpawnedPostfix)))
                 .Add<EnemySpawner>("CreateEnemyTypeToPrefabDictionary", postfix: P(typeof(Spawns), nameof(Spawns.CreateDictionaryPostfix)))
+                .Add<EnemySpawner>("GetRandomEnemyForWave", postfix: P(typeof(Spawns), nameof(Spawns.RandomEnemyPostfix)))
+                .Add<EnemyHealthContainer>("HealthDepleted", postfix: P(typeof(Exploders), nameof(Exploders.HealthDepletedPostfix)))
                 .Add<EnemySpawner>("SpawnEnemy", postfix: P(typeof(Spawns), nameof(Spawns.SpawnEnemyPostfix)))
                 .Add<EnemyEventStarterController>("StartEvent", prefix: P(typeof(Spawns), nameof(Spawns.StartEventPrefix)))
                 .Add<RunManager>("GetRunConfigurationForWorld", postfix: P(typeof(Spawns), nameof(Spawns.RunConfigurationPostfix)))
@@ -146,12 +152,14 @@ namespace SpellBrigadeMods.CrabLand
                 Run.Reset();
                 BossFight.Reset();
                 Eggs.Reset();
+                Exploders.Reset();
                 ThemeElements.Reset();
                 if (DebugSkipToBoss.Value) MelonCoroutines.Start(Run.DebugForceFirstObjective());
                 if (Active && IsHostOrSolo() && !string.IsNullOrWhiteSpace(ObjectivePool.Value))
                     MelonCoroutines.Start(Run.ObjectiveTimer(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
                 MelonCoroutines.Start(Spawns.Census(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
                 MelonCoroutines.Start(Eggs.Loop(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
+                MelonCoroutines.Start(Exploders.Loop(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
                 if (Active) Reskin.Apply();
                 if (Active) Theme.Apply();
                 if (IsHostOrSolo()) Net.BroadcastState();
