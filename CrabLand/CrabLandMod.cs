@@ -23,10 +23,10 @@ namespace SpellBrigadeMods.CrabLand
 
         internal static MelonLogger.Instance Log;
 
-        internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward, BossMechanics, ShortRun, HideAchievementPopups;
-        internal static MelonPreferences_Entry<float> BossScale, BossHealthMultiplier, DebugBossHealthMultiplier, ShellThreshold, RingRadius, ShellDamageMultiplier, ShellMaxSeconds, ObjectiveInterval, CrabDifficulty;
-        internal static MelonPreferences_Entry<int> BroodCrablings, BroodFleshCrabs, ShellShieldCrabs;
-        internal static MelonPreferences_Entry<string> BroodThresholds, ObjectivePool;
+        internal static MelonPreferences_Entry<bool> AutoStartCrabLand, DebugGodMode, DebugSkipToBoss, KeepEnemyEvents, GrantInfusionReward, BossMechanics, ShortRun, HideAchievementPopups, EggCrabs, SeaKelp, SeaFish, SeaTheme, SeaTint, SeaCaustics, SeaParticles, SeaGrass, SeaGodRays, SeaDepth, SeaElements;
+        internal static MelonPreferences_Entry<float> RayfishShare, ExploderShare, BossScale, BossHealthMultiplier, DebugBossHealthMultiplier, ShellThreshold, RingRadius, ShellDamageMultiplier, ShellMaxSeconds, ObjectiveInterval, CrabDifficulty, EggLayInterval, EggHatchSeconds, SeaThemeABSeconds, SeaFreezeWindow, SeaFreezeSeconds;
+        internal static MelonPreferences_Entry<int> ExploderBabies, BroodCrablings, BroodFleshCrabs, ShellShieldCrabs, EggsPerLayer, EggMaxTotal, EggHatchCrablings, SeaPropClusters, SeaFreezeStacks;
+        internal static MelonPreferences_Entry<string> BroodThresholds, ObjectivePool, SeaScreenshotDir;
 
         private static bool _active;
 
@@ -74,18 +74,48 @@ namespace SpellBrigadeMods.CrabLand
             ShellShieldCrabs = cat.CreateEntry("ShellShieldCrabs", 4, description: "ShieldCrabs in the shell ring");
             RingRadius = cat.CreateEntry("RingRadius", 6f, description: "Spawn ring radius around the boss");
             ShellDamageMultiplier = cat.CreateEntry("ShellDamageMultiplier", 0.1f, description: "Damage the boss takes while the shell is up");
+            EggCrabs = cat.CreateEntry("EggCrabs", true, description: "Crablodons lay petrified eggs that hatch into Crablings unless broken (host)");
+            EggLayInterval = cat.CreateEntry("EggLayInterval", 5f, description: "Seconds between eggs per Crablodon");
+            EggsPerLayer = cat.CreateEntry("EggsPerLayer", 5, description: "Most unhatched eggs per Crablodon");
+            EggMaxTotal = cat.CreateEntry("EggMaxTotal", 24, description: "Most unhatched eggs overall");
+            EggHatchSeconds = cat.CreateEntry("EggHatchSeconds", 8f, description: "Seconds until an unbroken egg hatches");
+            EggHatchCrablings = cat.CreateEntry("EggHatchCrablings", 7, description: "Crablings per hatched egg");
+            RayfishShare = cat.CreateEntry("RayfishShare", 0.12f, description: "Share of wave spawns that are rayfish (native FlyingManta), 0-1 (host)");
+            ExploderShare = cat.CreateEntry("ExploderShare", 0.15f, description: "Share of FleshCrabs that glow red and explode into Crablings on death, 0-1");
+            ExploderBabies = cat.CreateEntry("ExploderBabies", 3, description: "Crablings per exploding crab (host)");
+            SeaKelp = cat.CreateEntry("SeaKelp", true, description: "Sea: hide the trees (colliders stay) and grow tall swaying kelp in their place");
+            SeaFish = cat.CreateEntry("SeaFish", true, description: "Sea: small schools of swimming low-poly fish (visual only)");
+            SeaTheme = cat.CreateEntry("SeaTheme", true, description: "Under-the-sea look in Crab Land (local, every machine); master switch for the Sea* effects");
+            SeaTint = cat.CreateEntry("SeaTint", true, description: "Sea: teal fog, sea-tinted light, colour grade, vignette, bloom");
+            SeaCaustics = cat.CreateEntry("SeaCaustics", true, description: "Sea: animated caustics on the sun (light cookie)");
+            SeaParticles = cat.CreateEntry("SeaParticles", true, description: "Sea: rising bubbles and drifting sea snow");
+            SeaGrass = cat.CreateEntry("SeaGrass", true, description: "Sea: sea-floor props (swaying kelp, coral, rocks), kelp-tinted plants");
+            SeaPropClusters = cat.CreateEntry("SeaPropClusters", 60, description: "Sea: kelp, coral and rock clusters on the sea floor");
+            SeaGodRays = cat.CreateEntry("SeaGodRays", false, description: "Sea: light shafts from the surface (off: they read as yellow spikes from the top-down camera)");
+            SeaDepth = cat.CreateEntry("SeaDepth", true, description: "Sea: the water darkens as the waves go on, darkest at the boss");
+            SeaElements = cat.CreateEntry("SeaElements", true, description: "Sea: fire hits only make bubbles (no damage, no burn), lightning always crits, enemies chilled too often freeze");
+            SeaFreezeStacks = cat.CreateEntry("SeaFreezeStacks", 6, description: "Sea: ice chills within SeaFreezeWindow that freeze an enemy");
+            SeaFreezeWindow = cat.CreateEntry("SeaFreezeWindow", 4f, description: "Sea: seconds the chills are counted over");
+            SeaFreezeSeconds = cat.CreateEntry("SeaFreezeSeconds", 3f, description: "Sea: seconds a frozen enemy stays frozen");
+            SeaThemeABSeconds = cat.CreateEntry("SeaThemeABSeconds", 0f, description: "Debug: toggle the sea look off/on every N s to compare frame times (0 = off)");
+            SeaScreenshotDir = cat.CreateEntry("SeaScreenshotDir", "", description: "Debug: folder for automatic sea screenshots (empty = none)");
 
             Log.Msg($"prefs AutoStartCrabLand={AutoStartCrabLand.Value} DebugGodMode={DebugGodMode.Value} " +
                     $"DebugSkipToBoss={DebugSkipToBoss.Value} KeepEnemyEvents={KeepEnemyEvents.Value} GrantInfusionReward={GrantInfusionReward.Value} " +
                     $"BossScale={BossScale.Value} BossHealthMultiplier={BossHealthMultiplier.Value} DebugBossHealthMultiplier={DebugBossHealthMultiplier.Value} " +
                     $"HideAchievementPopups={HideAchievementPopups.Value} ObjectivePool={ObjectivePool.Value} ObjectiveInterval={ObjectiveInterval.Value} CrabDifficulty={CrabDifficulty.Value} ShortRun={ShortRun.Value} BossMechanics={BossMechanics.Value} ShellMaxSeconds={ShellMaxSeconds.Value} BroodThresholds={BroodThresholds.Value} BroodCrablings={BroodCrablings.Value} BroodFleshCrabs={BroodFleshCrabs.Value} " +
-                    $"ShellThreshold={ShellThreshold.Value} ShellShieldCrabs={ShellShieldCrabs.Value} RingRadius={RingRadius.Value} ShellDamageMultiplier={ShellDamageMultiplier.Value}");
+                    $"ShellThreshold={ShellThreshold.Value} ShellShieldCrabs={ShellShieldCrabs.Value} RingRadius={RingRadius.Value} ShellDamageMultiplier={ShellDamageMultiplier.Value} " +
+                    $"EggCrabs={EggCrabs.Value} EggLayInterval={EggLayInterval.Value} EggsPerLayer={EggsPerLayer.Value} EggMaxTotal={EggMaxTotal.Value} EggHatchSeconds={EggHatchSeconds.Value} EggHatchCrablings={EggHatchCrablings.Value} " +
+                    $"RayfishShare={RayfishShare.Value} ExploderShare={ExploderShare.Value} ExploderBabies={ExploderBabies.Value} " +
+                    $"SeaKelp={SeaKelp.Value} SeaFish={SeaFish.Value} SeaTheme={SeaTheme.Value} SeaTint={SeaTint.Value} SeaCaustics={SeaCaustics.Value} SeaParticles={SeaParticles.Value} SeaGrass={SeaGrass.Value} SeaGodRays={SeaGodRays.Value} SeaDepth={SeaDepth.Value} SeaElements={SeaElements.Value} SeaFreezeStacks={SeaFreezeStacks.Value} SeaFreezeWindow={SeaFreezeWindow.Value} SeaFreezeSeconds={SeaFreezeSeconds.Value} SeaThemeABSeconds={SeaThemeABSeconds.Value}");
 
-            new Hooks(HarmonyInstance, LoggerInstance)
+            var hooks = new Hooks(HarmonyInstance, LoggerInstance)
                 .Add<WorldsPanel>("InitializeButtons", postfix: P(typeof(Menu), nameof(Menu.InitializeButtonsPostfix)))
                 .Add<WorldsPanel>("OnWorldButtonClicked", prefix: P(typeof(Menu), nameof(Menu.OnWorldButtonClickedPrefix)))
                 .Add<MainMenuManager>("OnNetworkSpawn", postfix: P(typeof(CrabLandMod), nameof(MainMenuSpawnedPostfix)))
                 .Add<EnemySpawner>("CreateEnemyTypeToPrefabDictionary", postfix: P(typeof(Spawns), nameof(Spawns.CreateDictionaryPostfix)))
+                .Add<EnemySpawner>("GetRandomEnemyForWave", postfix: P(typeof(Spawns), nameof(Spawns.RandomEnemyPostfix)))
+                .Add<EnemyHealthContainer>("HealthDepleted", postfix: P(typeof(Exploders), nameof(Exploders.HealthDepletedPostfix)))
                 .Add<EnemySpawner>("SpawnEnemy", postfix: P(typeof(Spawns), nameof(Spawns.SpawnEnemyPostfix)))
                 .Add<EnemyEventStarterController>("StartEvent", prefix: P(typeof(Spawns), nameof(Spawns.StartEventPrefix)))
                 .Add<RunManager>("GetRunConfigurationForWorld", postfix: P(typeof(Spawns), nameof(Spawns.RunConfigurationPostfix)))
@@ -106,7 +136,10 @@ namespace SpellBrigadeMods.CrabLand
                 .Add<SpellImprovementLevelDeterminer>("DetermineSpellLevel", postfix: P(typeof(Run), nameof(Run.DetermineSpellLevelPostfix)))
                 .Add<InfusionStoreAvailabilityChecker>("InfusionStoreShouldBeOffered", postfix: P(typeof(Run), nameof(Run.InfusionShouldBeOfferedPostfix)))
                 .Add<ChallengeNotification>("QueueChallenge", prefix: P(typeof(CrabLandMod), nameof(QueueChallengePrefix)))
-                .Install();
+                .Add<PetrifiedEnemy>("OnHealthDepleted", prefix: P(typeof(Eggs), nameof(Eggs.OnHealthDepletedPrefix)))
+                .Add<PetrifiedEnemy>("ReplaceWithRegularEnemy", prefix: P(typeof(Eggs), nameof(Eggs.ReplaceWithRegularEnemyPrefix)));
+            ThemeElements.AddHooks(hooks);
+            hooks.Install();
         }
 
         private static System.Reflection.MethodInfo P(Type t, string name) => t.GetMethod(name);
@@ -120,11 +153,17 @@ namespace SpellBrigadeMods.CrabLand
                 Spawns.ResetCounts();
                 Run.Reset();
                 BossFight.Reset();
+                Eggs.Reset();
+                Exploders.Reset();
+                ThemeElements.Reset();
                 if (DebugSkipToBoss.Value) MelonCoroutines.Start(Run.DebugForceFirstObjective());
                 if (Active && IsHostOrSolo() && !string.IsNullOrWhiteSpace(ObjectivePool.Value))
                     MelonCoroutines.Start(Run.ObjectiveTimer(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
                 MelonCoroutines.Start(Spawns.Census(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
+                MelonCoroutines.Start(Eggs.Loop(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
+                MelonCoroutines.Start(Exploders.Loop(UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle));
                 if (Active) Reskin.Apply();
+                if (Active) Theme.Apply();
                 if (IsHostOrSolo()) Net.BroadcastState();
             }
             else
@@ -191,8 +230,9 @@ namespace SpellBrigadeMods.CrabLand
             Log.Msg($"difficulty: native={native} x{CrabDifficulty.Value} -> {__result}");
         }
 
-        public static bool TryToDamagePrefix(HealthContainer __instance, ref float amount)
+        public static bool TryToDamagePrefix(HealthContainer __instance, ref float amount, DamageInfo damageInfo, ref bool hitIsCritical)
         {
+            if (!ThemeElements.OnTryToDamage(__instance, ref amount, damageInfo, ref hitIsCritical)) return false;
             BossFight.ScaleDamage(__instance, ref amount);
             if (!DebugGodMode.Value) return true;
             return __instance.TryCast<PlayerHealthContainer>() == null;
