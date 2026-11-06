@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Build the player installer: release/SpellBrigadeModsSetup.exe (tracked) with the named mods embedded.
+# Usage: scripts/package [Mod ...]   (default: every top-level <Dir>/<Dir>.csproj except Hello)
+# The exe finds the game via Steam, backs up saves, installs .NET 6 + MelonLoader 0.7.3 if missing,
+# and copies the mods into <game>/Mods. GAME_DIR overrides the game folder used for the build id.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+game="${GAME_DIR:-/c/Program Files (x86)/Steam/steamapps/common/The Spell Brigade}"
+if [ $# -eq 0 ]; then
+  for d in "$root"/*/; do n="$(basename "$d")"; [ "$n" != Hello ] && [ -f "$d$n.csproj" ] && set -- "$@" "$n"; done
+fi
+[ $# -gt 0 ] || { echo "package: no mods found" >&2; exit 1; }
+
+stage="$root/dist/installer-stage/Mods"
+rm -rf "$root/dist/installer-stage"
+mkdir -p "$stage"
+for m in "$@"; do
+  [ -f "$root/$m/$m.csproj" ] || { echo "package: no mod $m" >&2; exit 1; }
+  dotnet build "$root/$m/$m.csproj" -c Release -nologo -v q
+  cp "$root/$m/bin/Release/net6.0/$m.dll" "$stage/"
+  echo "package: staged $m.dll"
+done
+
+acf="$(dirname "$(dirname "$game")")/appmanifest_2904000.acf"
+build="$(grep -o '"buildid"[[:space:]]*"[0-9]*"' "$acf" 2>/dev/null | grep -o '[0-9]\+' || true)"
+[ -n "$build" ] || echo "package: no build id found at $acf; the installer will skip the build check" >&2
+
+stage_win="$(cygpath -w "$stage")"
+dotnet build "$root/tools/installer/SpellBrigadeModsSetup.csproj" -c Release -nologo -v q \
+  "-p:ModsStage=$stage_win" "-p:GameBuild=$build"
+mkdir -p "$root/release"
+cp "$root/tools/installer/bin/Release/net48/SpellBrigadeModsSetup.exe" "$root/release/"
+echo "package: release/SpellBrigadeModsSetup.exe (mods: $*, game build ${build:-unknown})"

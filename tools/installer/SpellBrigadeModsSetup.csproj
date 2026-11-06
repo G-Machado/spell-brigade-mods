@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Built by scripts/package, which stages the mod DLLs and passes ModsStage and GameBuild. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>SpellBrigadeModsSetup</AssemblyName>
+    <RootNamespace>SpellBrigadeModsSetup</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <ModsStage Condition="'$(ModsStage)' == ''">$(MSBuildThisFileDirectory)..\..\dist\installer-stage\Mods</ModsStage>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <EmbeddedResource Include="$(ModsStage)\*.dll" LogicalName="Mods/%(Filename)%(Extension)" />
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>GameBuild</_Parameter1>
+      <_Parameter2>$(GameBuild)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <Target Name="RequireStagedMods" BeforeTargets="CoreCompile">
+    <Error Condition="'@(EmbeddedResource)' == ''" Text="No mod DLLs in $(ModsStage). Run scripts/package." />
+  </Target>
+</Project>

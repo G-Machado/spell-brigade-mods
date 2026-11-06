@@ -1,0 +1,2 @@
+<!-- Stops the repo-root Directory.Build.props (mod references, net6.0) from applying here. -->
+<Project />

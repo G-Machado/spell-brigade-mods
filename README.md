@@ -8,6 +8,18 @@ Plan and findings: [PLAN.md](PLAN.md). Rules for working in this repo: [CLAUDE.m
 | `Hello` | test mod: one hook on `MainMenuManager.Awake`, logs `hooks 1/1` |
 | `CrabLand` | in progress: crab-only map with a crab boss |
 
+## Install for players (no build tools)
+
+Download [`release/SpellBrigadeModsSetup.exe`](release/SpellBrigadeModsSetup.exe), run it and press Enter at the end. It finds the game through Steam (or asks
+for the folder), backs up the save folder to `Documents\SpellBrigadeSaveBackups\<time>`, installs the
+.NET 6 runtime and MelonLoader 0.7.3 if missing (downloads pinned by SHA-256), and copies the mods into
+`<game>\Mods`. It asks for administrator rights only if the game folder is not writable. The first
+launch afterwards takes several minutes. `SpellBrigadeModsSetup.exe --uninstall` removes the mod DLLs. The exe is unsigned: on the SmartScreen warning click **More info → Run anyway**.
+
+Build it with `scripts/package [Mod ...]` (default: every mod folder except `Hello`); output is
+`release/SpellBrigadeModsSetup.exe` (tracked: rebuild and commit it after mod changes), with the mods embedded and the current game build id recorded
+(the exe warns if the player's build differs).
+
 ## Setup
 
 1. Own the game on Steam and install it.
